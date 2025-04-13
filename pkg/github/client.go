@@ -35,7 +35,13 @@ func (c *Client) GetLatestRelease(owner, repo string) (*Release, error) {
 }
 
 func (c *Client) GetReleaseByTag(owner, repo, tag string) (*Release, error) {
-	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/releases/%s", owner, repo, tag)
+	var url string
+	if tag == "latest" {
+		url = fmt.Sprintf("https://api.github.com/repos/%s/%s/releases/latest", owner, repo)
+	} else {
+		url = fmt.Sprintf("https://api.github.com/repos/%s/%s/releases/tags/%s", owner, repo, tag)
+	}
+
 	resp, err := c.HttpClient.Get(url)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch release: %v", err)
