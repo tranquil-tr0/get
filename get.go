@@ -7,13 +7,14 @@ import (
 	"strings"
 
 	"github.com/tranquil-tr0/get/pkg/manager"
+	"github.com/tranquil-tr0/get/pkg/output"
 	"github.com/urfave/cli/v2"
 )
 
 func main() {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error getting home directory: %v\n", err)
+		output.PrintError("Error getting home directory: %v", err)
 		os.Exit(1)
 	}
 
@@ -178,7 +179,7 @@ func main() {
 	}
 
 	if err := app.Run(os.Args); err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
+		output.PrintError("%v", err)
 		os.Exit(1)
 	}
 }
