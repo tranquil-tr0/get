@@ -31,7 +31,11 @@ func NewClient() *Client {
 }
 
 func (c *Client) GetLatestRelease(owner, repo string) (*Release, error) {
-	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/releases/latest", owner, repo)
+	return c.GetReleaseByTag(owner, repo, "latest")
+}
+
+func (c *Client) GetReleaseByTag(owner, repo, tag string) (*Release, error) {
+	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/releases/%s", owner, repo, tag)
 	resp, err := c.HttpClient.Get(url)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch release: %v", err)

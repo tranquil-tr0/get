@@ -27,6 +27,17 @@ func main() {
 		Name:    "get",
 		Version: "v0.1.0",
 		Usage:   "A package manager for GitHub releases",
+		Flags: []cli.Flag{
+			&cli.BoolFlag{
+				Name:    "verbose",
+				Aliases: []string{"v"},
+				Usage:   "Enable verbose output",
+			},
+		},
+		Before: func(c *cli.Context) error {
+			pm.SetVerbose(c.Bool("verbose"))
+			return nil
+		},
 		Authors: []*cli.Author{
 			{
 				Name:  "tranquil-tr0",
@@ -41,10 +52,10 @@ func main() {
 				Description: "Install a package from a GitHub repository. The package must contain a .deb file in its latest release.",
 				ArgsUsage:   "<github-repo-url>",
 				Flags: []cli.Flag{
-					&cli.BoolFlag{
-						Name:    "verbose",
-						Aliases: []string{"v"},
-						Usage:   "Enable verbose output",
+					&cli.StringFlag{
+						Name:    "release",
+						Aliases: []string{"r"},
+						Usage:   "Specify a release version to install",
 					},
 				},
 				Action: func(c *cli.Context) error {
@@ -58,11 +69,7 @@ func main() {
 						return fmt.Errorf("Invalid GitHub repository URL")
 					}
 
-					if c.Bool("verbose") {
-						fmt.Printf("Installing package from %s/%s...\n", owner, repo)
-					}
-
-					if err := pm.Install(owner, repo); err != nil {
+					if err := pm.Install(owner, repo, c.String("release")); err != nil {
 						return fmt.Errorf("Error installing package: %v", err)
 					}
 					fmt.Printf("Successfully installed %s/%s\n", owner, repo)
@@ -123,10 +130,6 @@ func main() {
 						return fmt.Errorf("Invalid GitHub repository URL")
 					}
 
-					if c.Bool("verbose") {
-						fmt.Printf("Removing package %s/%s...\n", owner, repo)
-					}
-
 					if err := pm.Remove(owner, repo); err != nil {
 						return fmt.Errorf("Error removing package: %v", err)
 					}
@@ -157,10 +160,6 @@ func main() {
 					owner, repo := parseRepoURL(repoURL)
 					if owner == "" || repo == "" {
 						return fmt.Errorf("Invalid GitHub repository URL")
-					}
-
-					if c.Bool("verbose") {
-						fmt.Printf("Updating package %s/%s...\n", owner, repo)
 					}
 
 					if err := pm.Update(owner, repo); err != nil {

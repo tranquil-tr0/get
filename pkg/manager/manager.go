@@ -84,8 +84,15 @@ func (pm *PackageManager) ListPackages() ([]PackageMetadata, error) {
 	return packages, nil
 }
 
-func (pm *PackageManager) Install(owner, repo string) error {
-	release, err := pm.GithubClient.GetLatestRelease(owner, repo)
+func (pm *PackageManager) Install(owner, repo string, version string) error {
+	var release *github.Release
+	var err error
+
+	if version == "" {
+		release, err = pm.GithubClient.GetLatestRelease(owner, repo)
+	} else {
+		release, err = pm.GithubClient.GetReleaseByTag(owner, repo, version)
+	}
 	if err != nil {
 		return err
 	}
@@ -200,10 +207,8 @@ func (pm *PackageManager) Update(owner, repo string) error {
 		return err
 	}
 
-	return pm.Install(owner, repo)
+	return pm.Install(owner, repo, "")
 }
-
-var updateErrors []string
 
 func (pm *PackageManager) UpdateAll() error {
 	metadata, err := pm.loadMetadata()
@@ -211,7 +216,7 @@ func (pm *PackageManager) UpdateAll() error {
 		return err
 	}
 
-	var updateErrors []string
+	updateErrors := make([]string, 0)
 	for packageKey, pkg := range metadata.Packages {
 		release, err := pm.GithubClient.GetLatestRelease(pkg.Owner, pkg.Repo)
 		if err != nil {
@@ -230,7 +235,7 @@ func (pm *PackageManager) UpdateAll() error {
 			continue
 		}
 
-		if err := pm.Install(pkg.Owner, pkg.Repo); err != nil {
+		if err := pm.Install(pkg.Owner, pkg.Repo, ""); err != nil {
 			updateErrors = append(updateErrors, fmt.Sprintf("failed to install new version of %s: %v", packageKey, err))
 			continue
 		}
@@ -243,4 +248,8 @@ func (pm *PackageManager) UpdateAll() error {
 	}
 
 	return nil
+}
+
+func (pm *PackageManager) SetVerbose(verbose bool) {
+	pm.Verbose = verbose
 }
