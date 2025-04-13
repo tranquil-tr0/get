@@ -70,6 +70,36 @@ func main() {
 				},
 			},
 			{
+				Name:        "list",
+				Category:    "Package Management",
+				Usage:       "List installed packages",
+				Description: "Display a list of all packages installed through get.",
+				Flags: []cli.Flag{
+					&cli.BoolFlag{
+						Name:    "verbose",
+						Aliases: []string{"v"},
+						Usage:   "Enable verbose output",
+					},
+				},
+				Action: func(c *cli.Context) error {
+					packages, err := pm.ListPackages()
+					if err != nil {
+						return fmt.Errorf("Error listing packages: %v", err)
+					}
+
+					if len(packages) == 0 {
+						fmt.Println("No packages installed")
+						return nil
+					}
+
+					fmt.Println("Installed packages:")
+					for _, pkg := range packages {
+						fmt.Printf("%s/%s (version: %s, installed: %s)\n", pkg.Owner, pkg.Repo, pkg.Version, pkg.InstalledAt)
+					}
+					return nil
+				},
+			},
+			{
 				Name:        "remove",
 				Category:    "Package Management",
 				Usage:       "Remove an installed package",

@@ -70,6 +70,20 @@ func (pm *PackageManager) saveMetadata(metadata *Metadata) error {
 	return nil
 }
 
+func (pm *PackageManager) ListPackages() ([]PackageMetadata, error) {
+	metadata, err := pm.loadMetadata()
+	if err != nil {
+		return nil, err
+	}
+
+	packages := make([]PackageMetadata, 0, len(metadata.Packages))
+	for _, pkg := range metadata.Packages {
+		packages = append(packages, pkg)
+	}
+
+	return packages, nil
+}
+
 func (pm *PackageManager) Install(owner, repo string) error {
 	release, err := pm.GithubClient.GetLatestRelease(owner, repo)
 	if err != nil {
