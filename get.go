@@ -54,9 +54,6 @@ func main() {
 					},
 				},
 				Action: func(c *cli.Context) error {
-					pm.SetVerbose(c.Bool("verbose"))
-					pm.SetVerbose(c.Bool("verbose"))
-					pm.SetVerbose(c.Bool("verbose"))
 					if c.NArg() != 1 {
 						return fmt.Errorf("Please provide a GitHub repository URL")
 					}
@@ -67,7 +64,6 @@ func main() {
 						return fmt.Errorf("Invalid GitHub repository URL")
 					}
 
-					pm.SetVerbose(c.Bool("verbose"))
 					if err := pm.Install(owner, repo, c.String("release")); err != nil {
 						return fmt.Errorf("Error installing package: %v", err)
 					}
@@ -88,9 +84,6 @@ func main() {
 					},
 				},
 				Action: func(c *cli.Context) error {
-					pm.SetVerbose(c.Bool("verbose"))
-					pm.SetVerbose(c.Bool("verbose"))
-					pm.SetVerbose(c.Bool("verbose"))
 					packages, err := pm.ListPackages()
 					if err != nil {
 						return fmt.Errorf("Error listing packages: %v", err)
@@ -122,9 +115,6 @@ func main() {
 					},
 				},
 				Action: func(c *cli.Context) error {
-					pm.SetVerbose(c.Bool("verbose"))
-					pm.SetVerbose(c.Bool("verbose"))
-					pm.SetVerbose(c.Bool("verbose"))
 					if c.NArg() != 1 {
 						return fmt.Errorf("Please provide a GitHub repository URL")
 					}
@@ -145,9 +135,8 @@ func main() {
 			{
 				Name:        "update",
 				Category:    "Package Management",
-				Usage:       "Update an installed package",
-				Description: "Update a package to its latest version from GitHub releases.",
-				ArgsUsage:   "<github-repo-url>",
+				Usage:       "Check for package updates",
+				Description: "Check for available updates of installed packages",
 				Flags: []cli.Flag{
 					&cli.BoolFlag{
 						Name:    "verbose",
@@ -156,22 +145,37 @@ func main() {
 					},
 				},
 				Action: func(c *cli.Context) error {
-					pm.SetVerbose(c.Bool("verbose"))
-					if c.NArg() == 0 {
-						// TODO: Implement update all packages
-						return fmt.Errorf("Please provide a GitHub repository URL")
+					if err := pm.CheckForUpdates(); err != nil {
+						return fmt.Errorf("Error checking updates: %v", err)
 					}
-
-					repoURL := c.Args().First()
-					owner, repo := parseRepoURL(repoURL)
-					if owner == "" || repo == "" {
-						return fmt.Errorf("Invalid GitHub repository URL")
+					if len(pm.PendingUpdates) == 0 {
+						fmt.Println("All packages are up to date")
+					} else {
+						fmt.Println("Available updates:")
+						for pkgID, release := range pm.PendingUpdates {
+							fmt.Printf("%s - %s\n", pkgID, release.TagName)
+						}
 					}
-
-					if err := pm.Update(owner, repo); err != nil {
-						return fmt.Errorf("Error updating package: %v", err)
+					return nil
+				},
+			},
+			{
+				Name:        "upgrade",
+				Category:    "Package Management",
+				Usage:       "Upgrade outdated packages",
+				Description: "Install available updates for packages",
+				Flags: []cli.Flag{
+					&cli.BoolFlag{
+						Name:    "verbose",
+						Aliases: []string{"v"},
+						Usage:   "Enable verbose output",
+					},
+				},
+				Action: func(c *cli.Context) error {
+					if err := pm.Upgrade(); err != nil {
+						return fmt.Errorf("Error upgrading packages: %v", err)
 					}
-					fmt.Printf("Successfully updated %s/%s\n", owner, repo)
+					fmt.Println("Successfully upgraded all pending updates")
 					return nil
 				},
 			},

@@ -11,13 +11,21 @@ import (
 	"strings"
 
 	"github.com/tranquil-tr0/get/pkg/github"
-	"github.com/tranquil-tr0/get/pkg/output"
 )
 
 type PackageManager struct {
-	MetadataPath string
-	GithubClient *github.Client
-	Verbose      bool
+	MetadataPath   string
+	GithubClient   *github.Client
+	Verbose        bool
+	PendingUpdates map[string]github.Release // Tracks available updates
+}
+
+func (pm *PackageManager) Upgrade() any {
+	panic("unimplemented")
+}
+
+func (pm *PackageManager) CheckForUpdates() any {
+	panic("unimplemented")
 }
 
 type PackageMetadata struct {
@@ -43,39 +51,39 @@ func NewPackageManager(metadataPath string) *PackageManager {
 func (pm *PackageManager) loadMetadata() (*Metadata, error) {
 	metadata := &Metadata{Packages: make(map[string]PackageMetadata)}
 
-	if _, err := os.Stat(pm.MetadataPath); os.IsNotExist(err) {
+	if _, statErr := os.Stat(pm.MetadataPath); os.IsNotExist(statErr) {
 		return metadata, nil
 	}
 
-	data, err := os.ReadFile(pm.MetadataPath)
-	if err != nil {
-		return nil, fmt.Errorf(output.Red("failed to read metadata file: %v"), err)
+	data, readErr := os.ReadFile(pm.MetadataPath)
+	if readErr != nil {
+		return nil, fmt.Errorf("failed to read metadata file: %v", readErr)
 	}
 
-	if err := json.Unmarshal(data, metadata); err != nil {
-		return nil, fmt.Errorf(output.Red("failed to parse metadata: %v"), err)
+	if jsonErr := json.Unmarshal(data, metadata); jsonErr != nil {
+		return nil, fmt.Errorf("failed to parse metadata: %v", jsonErr)
 	}
 
 	return metadata, nil
 }
 
 func (pm *PackageManager) saveMetadata(metadata *Metadata) error {
-	data, err := json.MarshalIndent(metadata, "", "  ")
-	if err != nil {
-		return fmt.Errorf(output.Red("failed to marshal metadata: %v"), err)
+	data, marshalErr := json.MarshalIndent(metadata, "", "  ")
+	if marshalErr != nil {
+		return fmt.Errorf("failed to marshal metadata: %v", marshalErr)
 	}
 
-	if err := os.WriteFile(pm.MetadataPath, data, 0644); err != nil {
-		return fmt.Errorf(output.Red("failed to write metadata file: %v"), err)
+	if writeErr := os.WriteFile(pm.MetadataPath, data, 0644); writeErr != nil {
+		return fmt.Errorf("failed to write metadata file: %v", writeErr)
 	}
 
 	return nil
 }
 
 func (pm *PackageManager) ListPackages() ([]PackageMetadata, error) {
-	metadata, err := pm.loadMetadata()
-	if err != nil {
-		return nil, err
+	metadata, loadErr := pm.loadMetadata()
+	if loadErr != nil {
+		return nil, loadErr
 	}
 
 	packages := make([]PackageMetadata, 0, len(metadata.Packages))
@@ -91,89 +99,74 @@ func (pm *PackageManager) ListPackages() ([]PackageMetadata, error) {
 	return packages, nil
 }
 
-func (pm *PackageManager) Install(owner, repo string, version string) error {
-	var release *github.Release
-	var err error
-
-	if version == "" {
-		release, err = pm.GithubClient.GetLatestRelease(owner, repo)
-	} else {
-		release, err = pm.GithubClient.GetReleaseByTag(owner, repo, version)
-	}
-	if err != nil {
-		return err
-	}
-
+func (pm *PackageManager) installRelease(owner, repo string, release *github.Release) error {
 	debPackage := release.FindDebPackage()
 	if debPackage == nil {
-		return fmt.Errorf(output.Red("no .deb package found in the latest release"))
+		return fmt.Errorf("no .deb package found in release")
 	}
 
-	// Download the .deb package
-	resp, err := http.Get(debPackage.BrowserDownloadURL)
-	if err != nil {
-		return fmt.Errorf(output.Red("failed to download package: %v"), err)
+	// Download package
+	resp, httpErr := http.Get(debPackage.BrowserDownloadURL)
+	if httpErr != nil {
+		return fmt.Errorf("failed to download package: %v", httpErr)
 	}
 	defer resp.Body.Close()
 
-	tempDir, err := os.MkdirTemp("", "get-*")
-	if err != nil {
-		return fmt.Errorf(output.Red("failed to create temp directory: %v"), err)
+	// Create temp directory
+	tempDir, tempErr := os.MkdirTemp("", "get-*")
+	if tempErr != nil {
+		return fmt.Errorf("failed to create temp directory: %v", tempErr)
 	}
 	defer os.RemoveAll(tempDir)
 
+	// Save package
 	packagePath := filepath.Join(tempDir, debPackage.Name)
-	file, err := os.Create(packagePath)
-	if err != nil {
-		return fmt.Errorf(output.Red("failed to create package file: %v"), err)
+	file, createErr := os.Create(packagePath)
+	if createErr != nil {
+		return fmt.Errorf("failed to create package file: %v", createErr)
 	}
 
-	if _, err := io.Copy(file, resp.Body); err != nil {
+	if _, copyErr := io.Copy(file, resp.Body); copyErr != nil {
 		file.Close()
-		return fmt.Errorf(output.Red("failed to save package file: %v"), err)
+		return fmt.Errorf("failed to save package file: %v", copyErr)
 	}
 	file.Close()
 
-	// Install the package using apt
+	// Install with apt
 	cmd := exec.Command("sudo", "apt", "install", "-y", packagePath)
-
-	// Create a pipe to capture and display output in real-time
-	cmdReader, err := cmd.StdoutPipe()
-	if err != nil {
-		return fmt.Errorf(output.Red("failed to create output pipe: %v"), err)
+	cmdReader, pipeErr := cmd.StdoutPipe()
+	if pipeErr != nil {
+		return fmt.Errorf("failed to create output pipe: %v", pipeErr)
 	}
 	cmd.Stderr = cmd.Stdout
 
-	// Start the command
-	if err := cmd.Start(); err != nil {
-		return fmt.Errorf(output.Red("failed to start installation: %v"), err)
+	if startErr := cmd.Start(); startErr != nil {
+		return fmt.Errorf("failed to start installation: %v", startErr)
 	}
 
-	// Read and store output for package name extraction
+	// Capture output for package name
 	var outputBuilder strings.Builder
 	buf := make([]byte, 1024)
 	for {
 		n, err := cmdReader.Read(buf)
 		if n > 0 {
-			// Write to console
 			fmt.Print(string(buf[:n]))
-			// Store for later processing
 			outputBuilder.Write(buf[:n])
 		}
 		if err == io.EOF {
 			break
 		}
 		if err != nil {
-			return fmt.Errorf(output.Red("error reading output: %v"), err)
+			return fmt.Errorf("error reading output: %v", err)
 		}
 	}
 
-	// Wait for command to complete
-	if err := cmd.Wait(); err != nil {
-		return fmt.Errorf(output.Red("installation failed: %v"), err)
+	if waitErr := cmd.Wait(); waitErr != nil {
+		return fmt.Errorf("installation failed: %v", waitErr)
 	}
 
-	// Extract package name from stored output
+	os.RemoveAll(tempDir)
+	// Extract apt package name
 	outputStr := outputBuilder.String()
 	lines := strings.Split(outputStr, "\n")
 	var aptPackageName string
@@ -188,16 +181,13 @@ func (pm *PackageManager) Install(owner, repo string, version string) error {
 	}
 
 	if aptPackageName == "" {
-		return fmt.Errorf(output.Red("failed to find package name in apt output - expected 'Installing:' line followed by indented package name"))
+		return fmt.Errorf("failed to find package name in apt output")
 	}
 
-	// Print the extracted apt package name in green color
-	fmt.Printf("\033[32mExtracted APT package name: %s\033[0m\n", aptPackageName)
-
 	// Update metadata
-	metadata, err := pm.loadMetadata()
-	if err != nil {
-		return err
+	metadata, metaErr := pm.loadMetadata()
+	if metaErr != nil {
+		return metaErr
 	}
 
 	metadata.Packages[fmt.Sprintf("%s/%s", owner, repo)] = PackageMetadata{
@@ -209,29 +199,47 @@ func (pm *PackageManager) Install(owner, repo string, version string) error {
 	}
 
 	return pm.saveMetadata(metadata)
+
+	// Existing download and installation logic...
+}
+
+func (pm *PackageManager) Install(owner, repo string, version string) error {
+	var release *github.Release
+	var releaseErr error
+
+	if version == "" {
+		release, releaseErr = pm.GithubClient.GetLatestRelease(owner, repo)
+	} else {
+		release, releaseErr = pm.GithubClient.GetReleaseByTag(owner, repo, version)
+	}
+	if releaseErr != nil {
+		return releaseErr
+	}
+
+	return pm.installRelease(owner, repo, release)
 }
 
 func (pm *PackageManager) Remove(owner, repo string) error {
-	metadata, err := pm.loadMetadata()
-	if err != nil {
-		return err
+	metadata, loadErr := pm.loadMetadata()
+	if loadErr != nil {
+		return loadErr
 	}
 
 	packageKey := fmt.Sprintf("%s/%s", owner, repo)
 	pkg, exists := metadata.Packages[packageKey]
 	if !exists {
-		return fmt.Errorf(output.Red("package %s is not installed"), packageKey)
+		return fmt.Errorf("package %s is not installed", packageKey)
 	}
 
 	if pkg.AptName == "" {
-		return fmt.Errorf(output.Red("package %s was installed without capturing the apt package name"), packageKey)
+		return fmt.Errorf("package %s was installed without capturing the apt package name", packageKey)
 	}
 
 	// Remove the package using apt
 	cmd := exec.Command("sudo", "apt", "remove", "-y", pkg.AptName)
-	cmdOutput, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf(output.Red("failed to remove package: %v\nOutput: %s"), err, cmdOutput)
+	cmdOutput, cmdErr := cmd.CombinedOutput()
+	if cmdErr != nil {
+		return fmt.Errorf("failed to remove package: %v\nOutput: %s", cmdErr, cmdOutput)
 	}
 
 	delete(metadata.Packages, packageKey)
@@ -239,20 +247,20 @@ func (pm *PackageManager) Remove(owner, repo string) error {
 }
 
 func (pm *PackageManager) Update(owner, repo string) error {
-	metadata, err := pm.loadMetadata()
-	if err != nil {
-		return err
+	metadata, statErr := pm.loadMetadata()
+	if statErr != nil {
+		return statErr
 	}
 
 	packageKey := fmt.Sprintf("%s/%s", owner, repo)
 	pkg, exists := metadata.Packages[packageKey]
 	if !exists {
-		return fmt.Errorf(output.Red("package %s is not installed"), packageKey)
+		return fmt.Errorf("package %s is not installed", packageKey)
 	}
 
-	release, err := pm.GithubClient.GetLatestRelease(owner, repo)
-	if err != nil {
-		return fmt.Errorf(output.Red("failed to check updates for %s: %v"), packageKey, err)
+	release, releaseErr := pm.GithubClient.GetLatestRelease(owner, repo)
+	if releaseErr != nil {
+		return fmt.Errorf("failed to check updates for %s: %v", packageKey, releaseErr)
 	}
 
 	if release.TagName == pkg.Version {
@@ -261,24 +269,24 @@ func (pm *PackageManager) Update(owner, repo string) error {
 	}
 
 	// Remove old version and install new version
-	if err := pm.Remove(owner, repo); err != nil {
-		return err
+	if removeErr := pm.Remove(owner, repo); removeErr != nil {
+		return removeErr
 	}
 
 	return pm.Install(owner, repo, "")
 }
 
 func (pm *PackageManager) UpdateAll() error {
-	metadata, err := pm.loadMetadata()
-	if err != nil {
-		return err
+	metadata, loadErr := pm.loadMetadata()
+	if loadErr != nil {
+		return loadErr
 	}
 
 	updateErrors := make([]string, 0)
 	for packageKey, pkg := range metadata.Packages {
-		release, err := pm.GithubClient.GetLatestRelease(pkg.Owner, pkg.Repo)
-		if err != nil {
-			updateErrors = append(updateErrors, fmt.Sprintf("failed to check updates for %s: %v", packageKey, err))
+		release, releaseErr := pm.GithubClient.GetLatestRelease(pkg.Owner, pkg.Repo)
+		if releaseErr != nil {
+			updateErrors = append(updateErrors, fmt.Sprintf("failed to check updates for %s: %v", packageKey, releaseErr))
 			continue
 		}
 
@@ -288,13 +296,13 @@ func (pm *PackageManager) UpdateAll() error {
 		}
 
 		// Remove old version and install new version
-		if err := pm.Remove(pkg.Owner, pkg.Repo); err != nil {
-			updateErrors = append(updateErrors, fmt.Sprintf("failed to remove old version of %s: %v", packageKey, err))
+		if removeErr := pm.Remove(pkg.Owner, pkg.Repo); removeErr != nil {
+			updateErrors = append(updateErrors, fmt.Sprintf("failed to remove old version of %s: %v", packageKey, removeErr))
 			continue
 		}
 
-		if err := pm.Install(pkg.Owner, pkg.Repo, ""); err != nil {
-			updateErrors = append(updateErrors, fmt.Sprintf("failed to install new version of %s: %v", packageKey, err))
+		if installErr := pm.Install(pkg.Owner, pkg.Repo, ""); installErr != nil {
+			updateErrors = append(updateErrors, fmt.Sprintf("failed to install new version of %s: %v", packageKey, installErr))
 			continue
 		}
 
@@ -302,7 +310,7 @@ func (pm *PackageManager) UpdateAll() error {
 	}
 
 	if len(updateErrors) > 0 {
-		return fmt.Errorf(output.Red("some packages failed to update:\n%s"), strings.Join(updateErrors, "\n"))
+		return fmt.Errorf("some packages failed to update:\n%s", strings.Join(updateErrors, "\n"))
 	}
 
 	return nil
