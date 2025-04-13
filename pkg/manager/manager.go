@@ -24,6 +24,7 @@ type PackageMetadata struct {
 	Repo        string `json:"repo"`
 	Version     string `json:"version"`
 	InstalledAt string `json:"installed_at"`
+	AptName     string `json:"apt_name"`
 }
 
 type Metadata struct {
@@ -129,11 +130,30 @@ func (pm *PackageManager) Install(owner, repo string, version string) error {
 
 	// Install the package using apt
 	cmd := exec.Command("sudo", "apt", "install", "-y", packagePath)
-	if pm.Verbose {
-		fmt.Printf("Running command \"sudo apt install -y %s\"\n", packagePath)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to install package: %v\nOutput: %s", err, output)
 	}
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to install package: %v", err)
+
+	// Extract package name from apt output
+	outputStr := string(output)
+	lines := strings.Split(outputStr, "\n")
+	var aptPackageName string
+	for _, line := range lines {
+		if strings.HasPrefix(line, "Note, selecting '") {
+			parts := strings.Split(line, "' instead of")
+			if len(parts) >= 1 {
+				nameParts := strings.Split(parts[0], "Note, selecting '")
+				if len(nameParts) >= 2 {
+					aptPackageName = nameParts[1]
+					break
+				}
+			}
+		}
+	}
+
+	if aptPackageName == "" {
+		return fmt.Errorf("failed to extract package name from apt output")
 	}
 
 	// Update metadata
@@ -147,6 +167,7 @@ func (pm *PackageManager) Install(owner, repo string, version string) error {
 		Repo:        repo,
 		Version:     release.TagName,
 		InstalledAt: release.PublishedAt,
+		AptName:     aptPackageName,
 	}
 
 	return pm.saveMetadata(metadata)
@@ -159,24 +180,23 @@ func (pm *PackageManager) Remove(owner, repo string) error {
 	}
 
 	packageKey := fmt.Sprintf("%s/%s", owner, repo)
-	if _, exists := metadata.Packages[packageKey]; !exists {
+	pkg, exists := metadata.Packages[packageKey]
+	if !exists {
 		return fmt.Errorf("package %s is not installed", packageKey)
 	}
 
-	// Get package name from apt
-	cmd := exec.Command("dpkg", "-l", "*")
-	if pm.Verbose {
-		fmt.Printf("Running command \"dpkg -l *\"\n")
+	if pkg.AptName == "" {
+		return fmt.Errorf("package %s was installed without capturing the apt package name", packageKey)
 	}
-	_, err = cmd.Output()
+
+	// Remove the package using apt
+	cmd := exec.Command("sudo", "apt", "remove", "-y", pkg.AptName)
+	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("failed to list installed packages: %v", err)
+		return fmt.Errorf("failed to remove package: %v\nOutput: %s", err, output)
 	}
 
-	// TODO: Parse output to find package name and remove it using apt
-	// For now, we'll just remove the metadata
 	delete(metadata.Packages, packageKey)
-
 	return pm.saveMetadata(metadata)
 }
 
