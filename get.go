@@ -81,13 +81,6 @@ func main() {
 				Category:    "Package Management",
 				Usage:       "List installed packages",
 				Description: "Display a list of all packages installed through get.",
-				Flags: []cli.Flag{
-					&cli.BoolFlag{
-						Name:    "verbose",
-						Aliases: []string{"v"},
-						Usage:   "Enable verbose output",
-					},
-				},
 				Action: func(c *cli.Context) error {
 					packages, err := pm.ListPackages()
 					if err != nil {
@@ -112,13 +105,6 @@ func main() {
 				Usage:       "Remove an installed package",
 				Description: "Remove a previously installed package and clean up its metadata.",
 				ArgsUsage:   "<github-repo-url>",
-				Flags: []cli.Flag{
-					&cli.BoolFlag{
-						Name:    "verbose",
-						Aliases: []string{"v"},
-						Usage:   "Enable verbose output",
-					},
-				},
 				Action: func(c *cli.Context) error {
 					if c.NArg() != 1 {
 						return fmt.Errorf("Please provide a GitHub repository URL")
@@ -143,13 +129,6 @@ func main() {
 				Usage:       "Update an installed package",
 				Description: "Update a package to its latest version from GitHub releases.",
 				ArgsUsage:   "<github-repo-url>",
-				Flags: []cli.Flag{
-					&cli.BoolFlag{
-						Name:    "verbose",
-						Aliases: []string{"v"},
-						Usage:   "Enable verbose output",
-					},
-				},
 				Action: func(c *cli.Context) error {
 					if c.NArg() == 0 {
 						// TODO: Implement update all packages
