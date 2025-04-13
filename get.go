@@ -20,22 +20,11 @@ func main() {
 	metadataPath := filepath.Join(homeDir, ".get-metadata.json")
 	pm := manager.NewPackageManager(metadataPath)
 
-	// Set verbose mode based on flag
-	// Verbose mode will be set in each command's Action function
-
 	app := &cli.App{
 		Name:    "get",
 		Version: "v0.1.0",
 		Usage:   "A package manager for GitHub releases",
-		Flags: []cli.Flag{
-			&cli.BoolFlag{
-				Name:    "verbose",
-				Aliases: []string{"v"},
-				Usage:   "Enable verbose output",
-			},
-		},
 		Before: func(c *cli.Context) error {
-			pm.SetVerbose(c.Bool("verbose"))
 			return nil
 		},
 		Authors: []*cli.Author{
@@ -57,8 +46,16 @@ func main() {
 						Aliases: []string{"r"},
 						Usage:   "Specify a release version to install",
 					},
+					&cli.BoolFlag{
+						Name:    "verbose",
+						Aliases: []string{"v"},
+						Usage:   "Enable verbose output",
+					},
 				},
 				Action: func(c *cli.Context) error {
+					pm.SetVerbose(c.Bool("verbose"))
+					pm.SetVerbose(c.Bool("verbose"))
+					pm.SetVerbose(c.Bool("verbose"))
 					if c.NArg() != 1 {
 						return fmt.Errorf("Please provide a GitHub repository URL")
 					}
@@ -69,6 +66,7 @@ func main() {
 						return fmt.Errorf("Invalid GitHub repository URL")
 					}
 
+					pm.SetVerbose(c.Bool("verbose"))
 					if err := pm.Install(owner, repo, c.String("release")); err != nil {
 						return fmt.Errorf("Error installing package: %v", err)
 					}
@@ -81,7 +79,17 @@ func main() {
 				Category:    "Package Management",
 				Usage:       "List installed packages",
 				Description: "Display a list of all packages installed through get.",
+				Flags: []cli.Flag{
+					&cli.BoolFlag{
+						Name:    "verbose",
+						Aliases: []string{"v"},
+						Usage:   "Enable verbose output",
+					},
+				},
 				Action: func(c *cli.Context) error {
+					pm.SetVerbose(c.Bool("verbose"))
+					pm.SetVerbose(c.Bool("verbose"))
+					pm.SetVerbose(c.Bool("verbose"))
 					packages, err := pm.ListPackages()
 					if err != nil {
 						return fmt.Errorf("Error listing packages: %v", err)
@@ -105,7 +113,17 @@ func main() {
 				Usage:       "Remove an installed package",
 				Description: "Remove a previously installed package and clean up its metadata.",
 				ArgsUsage:   "<github-repo-url>",
+				Flags: []cli.Flag{
+					&cli.BoolFlag{
+						Name:    "verbose",
+						Aliases: []string{"v"},
+						Usage:   "Enable verbose output",
+					},
+				},
 				Action: func(c *cli.Context) error {
+					pm.SetVerbose(c.Bool("verbose"))
+					pm.SetVerbose(c.Bool("verbose"))
+					pm.SetVerbose(c.Bool("verbose"))
 					if c.NArg() != 1 {
 						return fmt.Errorf("Please provide a GitHub repository URL")
 					}
@@ -129,7 +147,15 @@ func main() {
 				Usage:       "Update an installed package",
 				Description: "Update a package to its latest version from GitHub releases.",
 				ArgsUsage:   "<github-repo-url>",
+				Flags: []cli.Flag{
+					&cli.BoolFlag{
+						Name:    "verbose",
+						Aliases: []string{"v"},
+						Usage:   "Enable verbose output",
+					},
+				},
 				Action: func(c *cli.Context) error {
+					pm.SetVerbose(c.Bool("verbose"))
 					if c.NArg() == 0 {
 						// TODO: Implement update all packages
 						return fmt.Errorf("Please provide a GitHub repository URL")
