@@ -173,14 +173,42 @@ func (pm *PackageManager) Remove(owner, repo string) error {
 	return pm.saveMetadata(metadata)
 }
 
-func (pm *PackageManager) Update() error {
+func (pm *PackageManager) Update(owner, repo string) error {
 	metadata, err := pm.loadMetadata()
 	if err != nil {
 		return err
 	}
 
-	if len(metadata.Packages) == 0 {
-		return fmt.Errorf("no packages installed")
+	packageKey := fmt.Sprintf("%s/%s", owner, repo)
+	pkg, exists := metadata.Packages[packageKey]
+	if !exists {
+		return fmt.Errorf("package %s is not installed", packageKey)
+	}
+
+	release, err := pm.GithubClient.GetLatestRelease(owner, repo)
+	if err != nil {
+		return fmt.Errorf("failed to check updates for %s: %v", packageKey, err)
+	}
+
+	if release.TagName == pkg.Version {
+		fmt.Printf("Package %s is already up to date\n", packageKey)
+		return nil
+	}
+
+	// Remove old version and install new version
+	if err := pm.Remove(owner, repo); err != nil {
+		return err
+	}
+
+	return pm.Install(owner, repo)
+}
+
+var updateErrors []string
+
+func (pm *PackageManager) UpdateAll() error {
+	metadata, err := pm.loadMetadata()
+	if err != nil {
+		return err
 	}
 
 	var updateErrors []string

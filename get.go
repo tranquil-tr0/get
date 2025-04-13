@@ -163,7 +163,7 @@ func main() {
 						fmt.Printf("Updating package %s/%s...\n", owner, repo)
 					}
 
-					if err := pm.Update(); err != nil {
+					if err := pm.Update(owner, repo); err != nil {
 						return fmt.Errorf("Error updating package: %v", err)
 					}
 					fmt.Printf("Successfully updated %s/%s\n", owner, repo)
