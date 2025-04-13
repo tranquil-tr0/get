@@ -177,21 +177,18 @@ func (pm *PackageManager) Install(owner, repo string, version string) error {
 	outputStr := outputBuilder.String()
 	lines := strings.Split(outputStr, "\n")
 	var aptPackageName string
+	var prevLine string
+
 	for _, line := range lines {
-		if strings.HasPrefix(line, "Note, selecting '") {
-			parts := strings.Split(line, "' instead of")
-			if len(parts) >= 1 {
-				nameParts := strings.Split(parts[0], "Note, selecting '")
-				if len(nameParts) >= 2 {
-					aptPackageName = nameParts[1]
-					break
-				}
-			}
+		if strings.TrimSpace(prevLine) == "Installing:" {
+			aptPackageName = strings.TrimSpace(line)
+			break
 		}
+		prevLine = line
 	}
 
 	if aptPackageName == "" {
-		return fmt.Errorf(output.Red("failed to extract package name from apt output"))
+		return fmt.Errorf(output.Red("failed to find package name in apt output - expected 'Installing:' line followed by indented package name"))
 	}
 
 	// Print the extracted apt package name in green color
