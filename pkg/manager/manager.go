@@ -80,6 +80,11 @@ func (pm *PackageManager) ListPackages() ([]PackageMetadata, error) {
 	packages := make([]PackageMetadata, 0, len(metadata.Packages))
 	for _, pkg := range metadata.Packages {
 		packages = append(packages, pkg)
+		fmt.Printf("Package: %s/%s (Version: %s)\n", pkg.Owner, pkg.Repo, pkg.Version)
+		if pkg.AptName != "" {
+			fmt.Printf("\033[32mAPT Package: %s\033[0m\n", pkg.AptName)
+		}
+		fmt.Println()
 	}
 
 	return packages, nil
@@ -130,13 +135,45 @@ func (pm *PackageManager) Install(owner, repo string, version string) error {
 
 	// Install the package using apt
 	cmd := exec.Command("sudo", "apt", "install", "-y", packagePath)
-	output, err := cmd.CombinedOutput()
+
+	// Create a pipe to capture and display output in real-time
+	cmdReader, err := cmd.StdoutPipe()
 	if err != nil {
-		return fmt.Errorf("failed to install package: %v\nOutput: %s", err, output)
+		return fmt.Errorf("failed to create output pipe: %v", err)
+	}
+	cmd.Stderr = cmd.Stdout
+
+	// Start the command
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("failed to start installation: %v", err)
 	}
 
-	// Extract package name from apt output
-	outputStr := string(output)
+	// Read and store output for package name extraction
+	var outputBuilder strings.Builder
+	buf := make([]byte, 1024)
+	for {
+		n, err := cmdReader.Read(buf)
+		if n > 0 {
+			// Write to console
+			fmt.Print(string(buf[:n]))
+			// Store for later processing
+			outputBuilder.Write(buf[:n])
+		}
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return fmt.Errorf("error reading output: %v", err)
+		}
+	}
+
+	// Wait for command to complete
+	if err := cmd.Wait(); err != nil {
+		return fmt.Errorf("installation failed: %v", err)
+	}
+
+	// Extract package name from stored output
+	outputStr := outputBuilder.String()
 	lines := strings.Split(outputStr, "\n")
 	var aptPackageName string
 	for _, line := range lines {
@@ -155,6 +192,9 @@ func (pm *PackageManager) Install(owner, repo string, version string) error {
 	if aptPackageName == "" {
 		return fmt.Errorf("failed to extract package name from apt output")
 	}
+
+	// Print the extracted apt package name in green color
+	fmt.Printf("\033[32mExtracted APT package name: %s\033[0m\n", aptPackageName)
 
 	// Update metadata
 	metadata, err := pm.loadMetadata()
