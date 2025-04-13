@@ -133,6 +133,7 @@ func (pm *PackageManager) installRelease(owner, repo string, release *github.Rel
 	file.Close()
 
 	// Install with apt
+	fmt.Println("Installing with apt...")
 	cmd := exec.Command("sudo", "apt", "install", "-y", packagePath)
 	cmdReader, pipeErr := cmd.StdoutPipe()
 	if pipeErr != nil {
@@ -150,7 +151,6 @@ func (pm *PackageManager) installRelease(owner, repo string, release *github.Rel
 	for {
 		n, err := cmdReader.Read(buf)
 		if n > 0 {
-			// fmt.Print(string(buf[:n]))
 			outputBuilder.Write(buf[:n])
 		}
 		if err == io.EOF {
