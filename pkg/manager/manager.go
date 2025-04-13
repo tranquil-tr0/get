@@ -150,7 +150,7 @@ func (pm *PackageManager) installRelease(owner, repo string, release *github.Rel
 	for {
 		n, err := cmdReader.Read(buf)
 		if n > 0 {
-			fmt.Print(string(buf[:n]))
+			// fmt.Print(string(buf[:n]))
 			outputBuilder.Write(buf[:n])
 		}
 		if err == io.EOF {
