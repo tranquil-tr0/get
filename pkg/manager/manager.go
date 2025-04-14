@@ -21,7 +21,28 @@ type PackageManager struct {
 }
 
 func (pm *PackageManager) CheckForUpdates() any {
-	panic("unimplemented")
+	metadata, err := pm.loadMetadata()
+	if err != nil {
+		return fmt.Errorf("failed to load metadata: %v", err)
+	}
+
+	var updates []string
+	for pkgID, pkg := range metadata.Packages {
+		release, err := pm.GithubClient.GetLatestRelease(pkg.Owner, pkg.Repo)
+		if err != nil {
+			continue
+		}
+
+		if release.TagName != pkg.Version {
+			pm.PendingUpdates[pkgID] = *release
+			updates = append(updates, pkgID)
+		}
+	}
+
+	if len(updates) > 0 {
+		return fmt.Sprintf("Found %d updates available", len(updates))
+	}
+	return "All packages are up to date"
 }
 
 type PackageMetadata struct {
