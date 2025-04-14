@@ -67,7 +67,7 @@ func main() {
 					if err := pm.Install(owner, repo, c.String("release")); err != nil {
 						return fmt.Errorf("Error installing package: %v", err)
 					}
-					fmt.Printf("Successfully installed %s/%s\n", owner, repo)
+					output.PrintSuccess("Successfully installed %s/%s", owner, repo)
 					return nil
 				},
 			},
@@ -128,7 +128,7 @@ func main() {
 					if err := pm.Remove(owner, repo); err != nil {
 						return fmt.Errorf("Error removing package: %v", err)
 					}
-					fmt.Printf("Successfully removed %s/%s\n", owner, repo)
+					output.PrintSuccess("Successfully removed %s/%s", owner, repo)
 					return nil
 				},
 			},
@@ -151,7 +151,7 @@ func main() {
 					if len(pm.PendingUpdates) == 0 {
 						fmt.Println("All packages are up to date")
 					} else {
-						fmt.Println("\x1b[1mAvailable updates:\x1b[0m")
+						output.PrintTitle("Available updates:")
 						fmt.Println("--------------------")
 						for pkgID, release := range pm.PendingUpdates {
 							pkg, err := pm.GetPackage(pkgID)
@@ -159,7 +159,7 @@ func main() {
 								output.PrintError("Warning: could not retrieve package %s: %v", pkgID, err)
 								continue
 							}
-							fmt.Printf("\x1b[1m%s\x1b[0m - current: \x1b[32m%s\x1b[0m, available: \x1b[33m%s\x1b[0m\n", pkgID, pkg.Version, release.TagName)
+							fmt.Printf("%s - current: %s, available: %s\n", output.Bold(pkgID), output.Yellow(pkg.Version), output.Green(release.TagName))
 						}
 					}
 					return nil
@@ -181,7 +181,7 @@ func main() {
 					if err := pm.UpdateAll(); err != nil {
 						return fmt.Errorf("Error upgrading packages: %v", err)
 					}
-					fmt.Println("Successfully applied all available updates")
+					output.PrintSuccess("Successfully applied all available updates")
 					return nil
 				},
 			},

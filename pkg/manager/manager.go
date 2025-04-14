@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/tranquil-tr0/get/pkg/github"
+	"github.com/tranquil-tr0/get/pkg/output"
 )
 
 type PackageManager struct {
@@ -51,14 +52,12 @@ func (pm *PackageManager) CheckForUpdates() error {
 			fmt.Println()
 		}
 		if len(updates) == 1 {
-			fmt.Printf("\033[1;32mFound %d update available\033[0m\n",
-				len(updates))
+			fmt.Printf("%s\n", output.Bold(output.Green(fmt.Sprintf("Found %d update available", len(updates)))))
 		} else {
-			fmt.Printf("\033[1;32mFound %d updates available\033[0m\n",
-				len(updates))
+			fmt.Printf("%s\n", output.Bold(output.Green(fmt.Sprintf("Found %d updates available", len(updates)))))
 		}
 	} else if len(errors) == 0 {
-		fmt.Println("\033[32mAll packages are up to date\033[0m")
+		output.PrintGreen("All packages are up to date")
 	}
 
 	if len(errors) > 0 {
@@ -131,7 +130,7 @@ func (pm *PackageManager) ListPackages() ([]PackageMetadata, error) {
 		packages = append(packages, pkg)
 		fmt.Printf("Package: %s/%s (Version: %s)\n", pkg.Owner, pkg.Repo, pkg.Version)
 		if pkg.AptName != "" {
-			fmt.Printf("\033[32mAPT Package: %s\033[0m\n", pkg.AptName)
+			output.PrintGreen("APT Package: %s", pkg.AptName)
 		}
 		fmt.Println()
 	}
