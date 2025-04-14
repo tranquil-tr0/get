@@ -425,6 +425,7 @@ func (pm *PackageManager) Upgrade() error {
 			fmt.Printf("Successfully upgraded %s to version %s\n", pkgID, release.TagName)
 			// Remove from pending updates map after successful upgrade
 			delete(pendingUpdates, pkgID)
+
 		}
 	}
 
