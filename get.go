@@ -172,10 +172,10 @@ func main() {
 					},
 				},
 				Action: func(c *cli.Context) error {
-					if err := pm.Upgrade(); err != nil {
+					if err := pm.UpdateAll(); err != nil {
 						return fmt.Errorf("Error upgrading packages: %v", err)
 					}
-					fmt.Println("Successfully upgraded all pending updates")
+					fmt.Println("Successfully applied all available updates")
 					return nil
 				},
 			},

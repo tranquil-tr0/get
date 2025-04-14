@@ -20,10 +20,6 @@ type PackageManager struct {
 	PendingUpdates map[string]github.Release // Tracks available updates
 }
 
-func (pm *PackageManager) Upgrade() any {
-	panic("unimplemented")
-}
-
 func (pm *PackageManager) CheckForUpdates() any {
 	panic("unimplemented")
 }
@@ -42,9 +38,10 @@ type Metadata struct {
 
 func NewPackageManager(metadataPath string) *PackageManager {
 	return &PackageManager{
-		MetadataPath: metadataPath,
-		GithubClient: github.NewClient(),
-		Verbose:      false,
+		MetadataPath:   metadataPath,
+		GithubClient:   github.NewClient(),
+		Verbose:        false,
+		PendingUpdates: make(map[string]github.Release),
 	}
 }
 
@@ -268,12 +265,8 @@ func (pm *PackageManager) Update(owner, repo string) error {
 		return nil
 	}
 
-	// Remove old version and install new version
-	if removeErr := pm.Remove(owner, repo); removeErr != nil {
-		return removeErr
-	}
-
-	return pm.Install(owner, repo, "")
+	pm.PendingUpdates[packageKey] = *release
+	return nil
 }
 
 func (pm *PackageManager) UpdateAll() error {
@@ -295,24 +288,43 @@ func (pm *PackageManager) UpdateAll() error {
 			continue
 		}
 
-		// Remove old version and install new version
-		if removeErr := pm.Remove(pkg.Owner, pkg.Repo); removeErr != nil {
-			updateErrors = append(updateErrors, fmt.Sprintf("failed to remove old version of %s: %v", packageKey, removeErr))
-			continue
-		}
-
-		if installErr := pm.Install(pkg.Owner, pkg.Repo, ""); installErr != nil {
-			updateErrors = append(updateErrors, fmt.Sprintf("failed to install new version of %s: %v", packageKey, installErr))
-			continue
-		}
-
-		fmt.Printf("Updated %s from %s to %s\n", packageKey, pkg.Version, release.TagName)
+		pm.PendingUpdates[packageKey] = *release
 	}
 
 	if len(updateErrors) > 0 {
 		return fmt.Errorf("some packages failed to update:\n%s", strings.Join(updateErrors, "\n"))
 	}
+	return nil
+}
 
+func (pm *PackageManager) Upgrade() error {
+	if len(pm.PendingUpdates) == 0 {
+		fmt.Println("No pending updates to install")
+		return nil
+	}
+
+	var errors []string
+	for pkgID, release := range pm.PendingUpdates {
+		parts := strings.Split(pkgID, "/")
+		if len(parts) != 2 {
+			errors = append(errors, fmt.Sprintf("invalid package format: %s", pkgID))
+			continue
+		}
+
+		owner, repo := parts[0], parts[1]
+		if err := pm.Remove(owner, repo); err != nil {
+			errors = append(errors, fmt.Sprintf("failed to remove %s: %v", pkgID, err))
+			continue
+		}
+		if err := pm.installRelease(owner, repo, &release); err != nil {
+			errors = append(errors, fmt.Sprintf("failed to install %s: %v", pkgID, err))
+		}
+	}
+
+	pm.PendingUpdates = make(map[string]github.Release)
+	if len(errors) > 0 {
+		return fmt.Errorf("upgrade completed with errors:\n%s", strings.Join(errors, "\n"))
+	}
 	return nil
 }
 
