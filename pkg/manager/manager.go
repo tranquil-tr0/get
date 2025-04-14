@@ -51,13 +51,11 @@ func (pm *PackageManager) CheckForUpdates() error {
 			fmt.Println()
 		}
 		if len(updates) == 1 {
-			fmt.Printf("\033[1;32mFound %d update available:\n%s\033[0m\n",
-				len(updates),
-				strings.Join(updates, "\n"))
+			fmt.Printf("\033[1;32mFound %d update available\033[0m\n",
+				len(updates))
 		} else {
-			fmt.Printf("\033[1;32mFound %d updates available:\n%s\033[0m\n",
-				len(updates),
-				strings.Join(updates, "\n"))
+			fmt.Printf("\033[1;32mFound %d updates available\033[0m\n",
+				len(updates))
 		}
 	} else if len(errors) == 0 {
 		fmt.Println("\033[32mAll packages are up to date\033[0m")
@@ -139,6 +137,19 @@ func (pm *PackageManager) ListPackages() ([]PackageMetadata, error) {
 	}
 
 	return packages, nil
+}
+
+func (pm *PackageManager) GetPackage(pkgID string) (*PackageMetadata, error) {
+	metadata, err := pm.loadMetadata()
+	if err != nil {
+		return nil, err
+	}
+
+	pkg, exists := metadata.Packages[pkgID]
+	if !exists {
+		return nil, fmt.Errorf("package %s not found", pkgID)
+	}
+	return &pkg, nil
 }
 
 func (pm *PackageManager) installRelease(owner, repo string, release *github.Release) error {

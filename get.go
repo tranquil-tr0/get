@@ -153,7 +153,12 @@ func main() {
 					} else {
 						fmt.Println("Available updates:")
 						for pkgID, release := range pm.PendingUpdates {
-							fmt.Printf("%s - %s\n", pkgID, release.TagName)
+							pkg, err := pm.GetPackage(pkgID)
+							if err != nil {
+								output.PrintError("Warning: could not retrieve package %s: %v", pkgID, err)
+								continue
+							}
+							fmt.Printf("\x1b[1m%s\x1b[0m - current: \x1b[32m%s\x1b[0m, available: \x1b[33m%s\x1b[0m\n", pkgID, pkg.Version, release.TagName)
 						}
 					}
 					return nil
