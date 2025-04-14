@@ -38,7 +38,15 @@ func (pm *PackageManager) CheckForUpdates() error {
 
 		if release.TagName != pkg.Version {
 			pm.PendingUpdates[pkgID] = *release
+			metadata.PendingUpdates[pkgID] = *release
 			updates = append(updates, pkgID)
+		}
+	}
+
+	// Save updates to metadata file
+	if len(updates) > 0 {
+		if saveErr := pm.saveMetadata(metadata); saveErr != nil {
+			errors = append(errors, fmt.Sprintf("failed to save metadata: %v", saveErr))
 		}
 	}
 
@@ -75,7 +83,8 @@ type PackageMetadata struct {
 }
 
 type Metadata struct {
-	Packages map[string]PackageMetadata `json:"packages"`
+	Packages       map[string]PackageMetadata `json:"packages"`
+	PendingUpdates map[string]github.Release  `json:"pending_updates"`
 }
 
 func NewPackageManager(metadataPath string) *PackageManager {
@@ -88,7 +97,10 @@ func NewPackageManager(metadataPath string) *PackageManager {
 }
 
 func (pm *PackageManager) loadMetadata() (*Metadata, error) {
-	metadata := &Metadata{Packages: make(map[string]PackageMetadata)}
+	metadata := &Metadata{
+		Packages:       make(map[string]PackageMetadata),
+		PendingUpdates: make(map[string]github.Release),
+	}
 
 	if _, statErr := os.Stat(pm.MetadataPath); os.IsNotExist(statErr) {
 		return metadata, nil
@@ -320,8 +332,10 @@ func (pm *PackageManager) Update(owner, repo string) error {
 		return nil
 	}
 
+	// Store pending update in metadata file instead of in-memory map
+	metadata.PendingUpdates[packageKey] = *release
 	pm.PendingUpdates[packageKey] = *release
-	return nil
+	return pm.saveMetadata(metadata)
 }
 
 func (pm *PackageManager) UpdateAll() error {
@@ -343,7 +357,14 @@ func (pm *PackageManager) UpdateAll() error {
 			continue
 		}
 
+		// Store pending update in metadata file
+		metadata.PendingUpdates[packageKey] = *release
 		pm.PendingUpdates[packageKey] = *release
+	}
+
+	// Save updates to metadata file
+	if err := pm.saveMetadata(metadata); err != nil {
+		updateErrors = append(updateErrors, fmt.Sprintf("failed to save metadata: %v", err))
 	}
 
 	if len(updateErrors) > 0 {
@@ -353,13 +374,19 @@ func (pm *PackageManager) UpdateAll() error {
 }
 
 func (pm *PackageManager) Upgrade() error {
-	if len(pm.PendingUpdates) == 0 {
+	// Load metadata to get pending updates from file
+	metadata, err := pm.loadMetadata()
+	if err != nil {
+		return fmt.Errorf("failed to load metadata: %v", err)
+	}
+
+	if len(metadata.PendingUpdates) == 0 {
 		fmt.Println("No pending updates to install")
 		return nil
 	}
 
 	var errors []string
-	for pkgID, release := range pm.PendingUpdates {
+	for pkgID, release := range metadata.PendingUpdates {
 		parts := strings.Split(pkgID, "/")
 		if len(parts) != 2 {
 			errors = append(errors, fmt.Sprintf("invalid package format: %s", pkgID))
@@ -376,7 +403,13 @@ func (pm *PackageManager) Upgrade() error {
 		}
 	}
 
+	// Clear pending updates from both memory and metadata file
 	pm.PendingUpdates = make(map[string]github.Release)
+	metadata.PendingUpdates = make(map[string]github.Release)
+	if saveErr := pm.saveMetadata(metadata); saveErr != nil {
+		errors = append(errors, fmt.Sprintf("failed to save metadata: %v", saveErr))
+	}
+
 	if len(errors) > 0 {
 		return fmt.Errorf("upgrade completed with errors:\n%s", strings.Join(errors, "\n"))
 	}
