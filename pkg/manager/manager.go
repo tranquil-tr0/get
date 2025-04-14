@@ -371,7 +371,7 @@ func (pm *PackageManager) Upgrade() error {
 			errors = append(errors, fmt.Sprintf("failed to remove %s: %v", pkgID, err))
 			continue
 		}
-		if err := pm.installRelease(owner, repo, &release); err != nil {
+		if err := pm.Install(owner, repo, release.TagName); err != nil {
 			errors = append(errors, fmt.Sprintf("failed to install %s: %v", pkgID, err))
 		}
 	}
