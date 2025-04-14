@@ -20,7 +20,7 @@ type PackageManager struct {
 	PendingUpdates map[string]github.Release // Tracks available updates
 }
 
-func (pm *PackageManager) CheckForUpdates() any {
+func (pm *PackageManager) CheckForUpdates() error {
 	metadata, err := pm.loadMetadata()
 	if err != nil {
 		return fmt.Errorf("failed to load metadata: %v", err)
@@ -41,24 +41,32 @@ func (pm *PackageManager) CheckForUpdates() any {
 		}
 	}
 
-	var result strings.Builder
 	if len(errors) > 0 {
-		result.WriteString("Update check errors:\n")
-		result.WriteString(strings.Join(errors, "\n"))
+		fmt.Println("Update check errors:")
+		fmt.Println(strings.Join(errors, "\n"))
 	}
 
 	if len(updates) > 0 {
-		if result.Len() > 0 {
-			result.WriteString("\n\n")
+		if len(errors) > 0 {
+			fmt.Println()
 		}
-		result.WriteString(fmt.Sprintf("\033[1;32mFound %d updates available:\n%s\033[0m",
-			len(updates),
-			strings.Join(updates, "\n")))
+		if len(updates) == 1 {
+			fmt.Printf("\033[1;32mFound %d update available:\n%s\033[0m\n",
+				len(updates),
+				strings.Join(updates, "\n"))
+		} else {
+			fmt.Printf("\033[1;32mFound %d updates available:\n%s\033[0m\n",
+				len(updates),
+				strings.Join(updates, "\n"))
+		}
 	} else if len(errors) == 0 {
-		result.WriteString("\033[32mAll packages are up to date\033[0m")
+		fmt.Println("\033[32mAll packages are up to date\033[0m")
 	}
 
-	return result.String()
+	if len(errors) > 0 {
+		return fmt.Errorf("encountered errors while checking for updates")
+	}
+	return nil
 }
 
 type PackageMetadata struct {
