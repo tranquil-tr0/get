@@ -59,9 +59,16 @@ func main() {
 					}
 
 					repoURL := c.Args().First()
+
 					owner, repo := parseRepoURL(repoURL)
 					if owner == "" || repo == "" {
 						return fmt.Errorf("Invalid GitHub repository URL")
+					}
+
+					// Check if this was a short format URL and display a message
+					if !strings.Contains(repoURL, "github.com") && !strings.HasPrefix(repoURL, "http") {
+						fullURL := fmt.Sprintf("https://github.com/%s/%s", owner, repo)
+						fmt.Printf("Automatically selecting link \"%s\"\n", fullURL)
 					}
 
 					if err := pm.Install(owner, repo, c.String("release")); err != nil {
@@ -196,6 +203,8 @@ func main() {
 
 func parseRepoURL(url string) (owner, repo string) {
 	// Remove protocol and domain if present
+	// This function already handles the <user>/<repo> format correctly
+	// by removing any prefixes and splitting by '/'
 	url = strings.TrimPrefix(url, "https://")
 	url = strings.TrimPrefix(url, "http://")
 	url = strings.TrimPrefix(url, "github.com/")
