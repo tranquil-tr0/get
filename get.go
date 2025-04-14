@@ -151,7 +151,8 @@ func main() {
 					if len(pm.PendingUpdates) == 0 {
 						fmt.Println("All packages are up to date")
 					} else {
-						fmt.Println("Available updates:")
+						fmt.Println("\x1b[1mAvailable updates:\x1b[0m")
+						fmt.Println("--------------------")
 						for pkgID, release := range pm.PendingUpdates {
 							pkg, err := pm.GetPackage(pkgID)
 							if err != nil {
