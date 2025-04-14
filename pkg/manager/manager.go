@@ -381,11 +381,23 @@ func (pm *PackageManager) Upgrade() error {
 	}
 
 	if len(metadata.PendingUpdates) == 0 {
-		fmt.Println("No pending updates to install")
+		output.PrintWarn("No pending updates to install")
 		return nil
 	}
 
 	var errors []string
+	var successfulUpgrades []string
+
+	// Create a copy of pending updates to track what needs to be removed from metadata
+	pendingUpdates := make(map[string]github.Release)
+	for pkgID, release := range metadata.PendingUpdates {
+		pendingUpdates[pkgID] = release
+	}
+
+	if len(metadata.PendingUpdates) > 0 {
+		fmt.Printf("Installing %d pending updates...\n", len(metadata.PendingUpdates))
+	}
+
 	for pkgID, release := range metadata.PendingUpdates {
 		parts := strings.Split(pkgID, "/")
 		if len(parts) != 2 {
@@ -400,14 +412,41 @@ func (pm *PackageManager) Upgrade() error {
 		}
 		if err := pm.Install(owner, repo, release.TagName); err != nil {
 			errors = append(errors, fmt.Sprintf("failed to install %s: %v", pkgID, err))
+			// Try to reinstall the original version if upgrade fails
+			pkg, exists := metadata.Packages[pkgID]
+			if exists {
+				fmt.Printf("Attempting to reinstall original version %s...\n", pkg.Version)
+				if reinstallErr := pm.Install(owner, repo, pkg.Version); reinstallErr != nil {
+					errors = append(errors, fmt.Sprintf("failed to reinstall original version of %s: %v", pkgID, reinstallErr))
+				}
+			}
+		} else {
+			successfulUpgrades = append(successfulUpgrades, pkgID)
+			fmt.Printf("Successfully upgraded %s to version %s\n", pkgID, release.TagName)
+			// Remove from pending updates map after successful upgrade
+			delete(pendingUpdates, pkgID)
 		}
 	}
 
-	// Clear pending updates from both memory and metadata file
-	pm.PendingUpdates = make(map[string]github.Release)
-	metadata.PendingUpdates = make(map[string]github.Release)
+	// Only clear successfully upgraded packages from pending updates
+	for _, pkgID := range successfulUpgrades {
+		delete(pendingUpdates, pkgID)
+	}
+
+	// Update both in-memory and file-based pending updates
+	pm.PendingUpdates = pendingUpdates
+	metadata.PendingUpdates = pendingUpdates
 	if saveErr := pm.saveMetadata(metadata); saveErr != nil {
 		errors = append(errors, fmt.Sprintf("failed to save metadata: %v", saveErr))
+	}
+
+	// Provide a summary of the upgrade process
+	if len(successfulUpgrades) > 0 {
+		if len(successfulUpgrades) == 1 {
+			fmt.Printf("%s\n", output.Bold(output.Green("Successfully upgraded 1 package")))
+		} else {
+			fmt.Printf("%s\n", output.Bold(output.Green(fmt.Sprintf("Successfully upgraded %d packages", len(successfulUpgrades)))))
+		}
 	}
 
 	if len(errors) > 0 {
