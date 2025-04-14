@@ -27,9 +27,11 @@ func (pm *PackageManager) CheckForUpdates() any {
 	}
 
 	var updates []string
+	var errors []string
 	for pkgID, pkg := range metadata.Packages {
 		release, err := pm.GithubClient.GetLatestRelease(pkg.Owner, pkg.Repo)
 		if err != nil {
+			errors = append(errors, fmt.Sprintf("%s: %v", pkgID, err))
 			continue
 		}
 
@@ -39,10 +41,24 @@ func (pm *PackageManager) CheckForUpdates() any {
 		}
 	}
 
-	if len(updates) > 0 {
-		return fmt.Sprintf("Found %d updates available", len(updates))
+	var result strings.Builder
+	if len(errors) > 0 {
+		result.WriteString("Update check errors:\n")
+		result.WriteString(strings.Join(errors, "\n"))
 	}
-	return "All packages are up to date"
+
+	if len(updates) > 0 {
+		if result.Len() > 0 {
+			result.WriteString("\n\n")
+		}
+		result.WriteString(fmt.Sprintf("\033[1;32mFound %d updates available:\n%s\033[0m",
+			len(updates),
+			strings.Join(updates, "\n")))
+	} else if len(errors) == 0 {
+		result.WriteString("\033[32mAll packages are up to date\033[0m")
+	}
+
+	return result.String()
 }
 
 type PackageMetadata struct {
