@@ -429,14 +429,9 @@ func (pm *PackageManager) Upgrade() error {
 		}
 	}
 
-	// Only clear successfully upgraded packages from pending updates
-	for _, pkgID := range successfulUpgrades {
-		delete(pendingUpdates, pkgID)
-	}
-
-	// Update both in-memory and file-based pending updates
-	pm.PendingUpdates = pendingUpdates
-	metadata.PendingUpdates = pendingUpdates
+	// Clear all pending updates regardless of success
+	pm.PendingUpdates = make(map[string]github.Release)
+	metadata.PendingUpdates = make(map[string]github.Release)
 	if saveErr := pm.saveMetadata(metadata); saveErr != nil {
 		errors = append(errors, fmt.Sprintf("failed to save metadata: %v", saveErr))
 	}
