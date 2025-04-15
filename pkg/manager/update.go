@@ -116,6 +116,8 @@ func (pm *PackageManager) UpdatePackageOrReturnVersions(pkgID string) (currentVe
 		return 0, 0, fmt.Errorf("failed to parse latest version: %v", err)
 	}
 
+	output.PrintSuccess("Current version: %s, Latest version: %s", currentVersionStr, latestVersionStr)
+
 	// Compare versions
 	if latestVersionInt > currentVersionInt {
 		// Check if the latest release has a .deb file
