@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/tranquil-tr0/get/pkg/output"
 )
@@ -68,7 +69,7 @@ func (pm *PackageManager) UpdatePackageOrReturnVersions(pkgID string) (currentVe
 	//IMPLEMENTATION:
 	/*
 		1. From metadata, read the installed version of the package
-			2. Call GetLatestRelease() from client, then compare with installed version
+			2. Call GetLatestVersionNumber() from client, then compare with installed version
 			3. If latest version is greater than installed version,
 				2. Check if the latest release has a .deb file making use of client.go, if yes:
 					1. Check if a pending update of the pkgID package is already listed for the latest version, if yes:
@@ -90,39 +91,36 @@ func (pm *PackageManager) UpdatePackageOrReturnVersions(pkgID string) (currentVe
 		return 0, 0, fmt.Errorf("package %s is not installed", pkgID)
 	}
 
-	// Parse owner and repo from pkgID (format: owner/repo)
-	parts := strings.Split(pkgID, "/")
-	if len(parts) != 2 {
-		return 0, 0, fmt.Errorf("invalid package ID format: %s", pkgID)
-	}
+	// Get current version from metadata
+	currentVersion, err = parseVersionToInt(pkg.Version)
 
-	// Parse version numbers (removing 'v' prefix if present)
-	currentVersionStr := strings.TrimPrefix(pkg.Version, "v")
-	currentVersionInt, err := parseVersionToInt(currentVersionStr)
 	if err != nil {
 		return 0, 0, fmt.Errorf("failed to parse current version: %v", err)
 	}
 
-	// Call GetLatestRelease from client
-	latestRelease, err := pm.GithubClient.GetLatestRelease(pkgID)
+	// Call GetLatestVersionNumber from client
+	latestVersionStr, err := pm.GithubClient.GetLatestVersionNumber(pkgID)
 	if err != nil {
-		return 0, 0, fmt.Errorf("failed to get latest release: %v", err)
+		return 0, 0, fmt.Errorf("failed to get latest version: %v", err)
 	}
 
-	// Parse latest version
-	latestVersionStr := strings.TrimPrefix(latestRelease.TagName, "v")
-	latestVersionInt, err := parseVersionToInt(latestVersionStr)
+	// Convert string version to integer
+	latestVersion, err = parseVersionToInt(latestVersionStr)
 	if err != nil {
 		return 0, 0, fmt.Errorf("failed to parse latest version: %v", err)
 	}
 
 	// Check if there are any pending updates
 	// Compare versions
-	if latestVersionInt > currentVersionInt {
+	if latestVersion > currentVersion {
+		latestRelease, err := pm.GithubClient.GetLatestRelease(pkgID)
+		if err != nil {
+			return currentVersion, latestVersion, fmt.Errorf("failed to get latest release: %v", err)
+		}
 		// Check if the latest release has a .deb file
 		if latestRelease.FindDebPackage() == nil {
 			// No .deb file in the latest release
-			return currentVersionInt, latestVersionInt, fmt.Errorf("latest release does not contain a .deb file")
+			return currentVersion, latestVersion, fmt.Errorf("latest release does not contain a .deb file")
 		} else {
 			// Check if a pending update is already listed for this package
 			_, updateExists := metadata.PendingUpdates[pkgID]
@@ -134,29 +132,46 @@ func (pm *PackageManager) UpdatePackageOrReturnVersions(pkgID string) (currentVe
 				}
 			}
 
-			return currentVersionInt, latestVersionInt, nil
+			return currentVersion, latestVersion, nil
 		}
 	}
 
 	// No updates available
-	return currentVersionInt, latestVersionInt, nil
+	return currentVersion, latestVersion, nil
 }
 
 // Helper function to parse version string to integer for comparison
 func parseVersionToInt(version string) (int, error) {
-	// Remove any non-numeric characters and parse as integer
-	// This is a simple implementation - for more complex versioning,
-	// a proper semver parsing library would be better
-	cleanVersion := strings.Split(version, ".")
-	if len(cleanVersion) == 0 {
+	// Trim leading/trailing non-numeric characters
+	version = strings.TrimFunc(version, func(r rune) bool {
+		return !unicode.IsDigit(r)
+	})
+
+	// Split into major.minor.patch components
+	parts := strings.Split(version, ".")
+	if len(parts) == 0 {
 		return 0, fmt.Errorf("invalid version format: %s", version)
 	}
 
-	// Just use the first number for simple comparison
-	majorVersion := cleanVersion[0]
-	result, err := strconv.Atoi(majorVersion)
-	if err != nil {
-		return 0, fmt.Errorf("failed to parse version number: %v", err)
+	// Convert each component to integer and combine into a single comparable number
+	// Weights: major*10000 + minor*100 + patch
+	var result int
+	for i, part := range parts {
+		if i >= 3 { // Only consider major.minor.patch
+			break
+		}
+		num, err := strconv.Atoi(part)
+		if err != nil {
+			return 0, fmt.Errorf("failed to parse version component: %v", err)
+		}
+		switch i {
+		case 0: // major
+			result += num * 10000
+		case 1: // minor
+			result += num * 100
+		case 2: // patch
+			result += num
+		}
 	}
 
 	return result, nil
