@@ -116,6 +116,8 @@ func (pm *PackageManager) UpdatePackageOrReturnVersions(pkgID string) (currentVe
 		return 0, 0, fmt.Errorf("failed to parse latest version: %v", err)
 	}
 
+	output.PrintError("1")
+	// Check if there are any updates
 	var updatesExist bool = false
 	if latestVersionInt != currentVersionInt {
 		updatesExist = true
@@ -128,7 +130,7 @@ func (pm *PackageManager) UpdatePackageOrReturnVersions(pkgID string) (currentVe
 			// No .deb file in the latest release
 			return currentVersionInt, latestVersionInt, fmt.Errorf("latest release does not contain a .deb file")
 		} else {
-
+			output.PrintError("2")
 			// Check if a pending update is already listed for this package
 			_, updateExists := metadata.PendingUpdates[pkgID]
 			if !updateExists {
@@ -137,11 +139,8 @@ func (pm *PackageManager) UpdatePackageOrReturnVersions(pkgID string) (currentVe
 				if err := pm.SaveMetadata(metadata); err != nil {
 					return 0, 0, fmt.Errorf("failed to save metadata: %v", err)
 				}
-			} else {
-				// Pending update already exists, return current and latest versions
-				return currentVersionInt, latestVersionInt, nil
 			}
-
+			output.PrintError("3")
 			// Print package, current version in red, and latest version in green
 			output.PrintNormal("Package: %s, Current Version: %s, Latest Version: %s", pkgID, output.Red(currentVersionStr), output.Green(latestVersionStr))
 
