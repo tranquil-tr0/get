@@ -115,7 +115,13 @@ func (pm *PackageManager) InstallRelease(owner, repo string, release *github.Rel
 }
 
 // Install does InstallRelease, but an extra version sanity check first
-func (pm *PackageManager) Install(owner, repo string, version string) error {
+func (pm *PackageManager) Install(pkgID string, version string) error {
+	parts := strings.Split(pkgID, "/")
+	if len(parts) != 2 {
+		return fmt.Errorf("invalid package ID format, expected 'owner/repo'")
+	}
+	owner, repo := parts[0], parts[1]
+
 	// Load metadata
 	metadata, metaErr := pm.LoadMetadata()
 	if metaErr != nil {
@@ -123,16 +129,15 @@ func (pm *PackageManager) Install(owner, repo string, version string) error {
 	}
 
 	// Check if package is already installed
-	packageKey := fmt.Sprintf("%s/%s", owner, repo)
-	if _, exists := metadata.Packages[packageKey]; exists {
-		return fmt.Errorf("package %s is already installed", packageKey)
+	if _, exists := metadata.Packages[pkgID]; exists {
+		return fmt.Errorf("package %s is already installed", pkgID)
 	}
 
 	var release *github.Release
 	var releaseErr error
 
 	if version == "" {
-		release, releaseErr = pm.GithubClient.GetLatestRelease(owner, repo)
+		release, releaseErr = pm.GithubClient.GetLatestRelease(pkgID)
 	} else {
 		release, releaseErr = pm.GithubClient.GetReleaseByTag(owner, repo, version)
 	}

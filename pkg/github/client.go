@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"regexp"
 	"strings"
 )
 
@@ -30,8 +31,12 @@ func NewClient() *Client {
 	}
 }
 
-func (c *Client) GetLatestRelease(owner, repo string) (*Release, error) {
-	return c.GetReleaseByTag(owner, repo, "latest")
+func (c *Client) GetLatestRelease(pkgID string) (*Release, error) {
+	parts := strings.Split(pkgID, "/")
+	if len(parts) != 2 {
+		return nil, fmt.Errorf("invalid package ID format, expected 'owner/repo'")
+	}
+	return c.GetReleaseByTag(parts[0], parts[1], "latest")
 }
 
 func (c *Client) GetReleaseByTag(owner, repo, tag string) (*Release, error) {
@@ -72,4 +77,22 @@ func (r *Release) FindDebPackage() *Asset {
 		}
 	}
 	return nil
+}
+
+func (c *Client) GetLatestVersionNumber(pkgID string) (string, error) {
+	release, err := c.GetLatestRelease(pkgID)
+	if err != nil {
+		return "", fmt.Errorf("failed to get latest release: %v", err)
+	}
+
+	// Extract version number from tag name (remove 'v' prefix if present)
+	version := strings.TrimPrefix(release.TagName, "v")
+
+	// Validate version format (semver-like)
+	matched, err := regexp.MatchString(`^\d+\.\d+\.\d+$`, version)
+	if !matched || err != nil {
+		return "", fmt.Errorf("invalid version format in tag: %s", release.TagName)
+	}
+
+	return version, nil
 }

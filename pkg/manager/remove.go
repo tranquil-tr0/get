@@ -5,20 +5,19 @@ import (
 	"os/exec"
 )
 
-func (pm *PackageManager) Remove(owner, repo string) error {
+func (pm *PackageManager) Remove(pkgID string) error {
 	metadata, loadErr := pm.LoadMetadata()
 	if loadErr != nil {
 		return loadErr
 	}
 
-	packageKey := fmt.Sprintf("%s/%s", owner, repo)
-	pkg, exists := metadata.Packages[packageKey]
+	pkg, exists := metadata.Packages[pkgID]
 	if !exists {
-		return fmt.Errorf("package %s is not installed", packageKey)
+		return fmt.Errorf("package %s is not installed", pkgID)
 	}
 
 	if pkg.AptName == "" {
-		return fmt.Errorf("package %s was installed without capturing the apt package name", packageKey)
+		return fmt.Errorf("package %s was installed without capturing the apt package name", pkgID)
 	}
 
 	// Remove the package using apt
@@ -28,6 +27,6 @@ func (pm *PackageManager) Remove(owner, repo string) error {
 		return fmt.Errorf("failed to remove package: %v\nOutput: %s", cmdErr, cmdOutput)
 	}
 
-	delete(metadata.Packages, packageKey)
+	delete(metadata.Packages, pkgID)
 	return pm.SaveMetadata(metadata)
 }

@@ -8,10 +8,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/tranquil-tr0/get/pkg/manager"
 	"github.com/tranquil-tr0/get/pkg/output"
+	"github.com/tranquil-tr0/get/pkg/tools"
+
 	"github.com/urfave/cli/v2"
 )
 
@@ -63,15 +64,15 @@ func main() {
 					}
 
 					repoURL := c.Args().First()
-					owner, repo := parseRepoURL(repoURL)
-					if owner == "" || repo == "" {
-						return fmt.Errorf("Invalid GitHub repository URL")
+					pkgID, err := tools.ParseRepoURL(repoURL)
+					if err != nil {
+						return fmt.Errorf("failed to parse repository URL: %v", err)
 					}
 
-					if err := pm.Install(owner, repo, c.String("release")); err != nil {
+					if err := pm.Install(pkgID, c.String("release")); err != nil {
 						return fmt.Errorf("Error installing package: %v", err)
 					}
-					output.PrintSuccess("Successfully installed %s/%s", owner, repo)
+					output.PrintSuccess("Successfully installed %s", pkgID)
 					return nil
 				},
 			},
@@ -115,15 +116,15 @@ func main() {
 					}
 
 					repoURL := c.Args().First()
-					owner, repo := parseRepoURL(repoURL)
-					if owner == "" || repo == "" {
-						return fmt.Errorf("Invalid GitHub repository URL")
+					pkgID, err := tools.ParseRepoURL(repoURL)
+					if err != nil {
+						return fmt.Errorf("failed to parse repository URL: %v", err)
 					}
 
-					if err := pm.Remove(owner, repo); err != nil {
+					if err := pm.Remove(pkgID); err != nil {
 						return fmt.Errorf("Error removing package: %v", err)
 					}
-					output.PrintSuccess("Successfully removed %s/%s", owner, repo)
+					output.PrintSuccess("Successfully removed %s", pkgID)
 					return nil
 				},
 			},
@@ -203,19 +204,4 @@ func main() {
 		output.PrintError("%v", err)
 		os.Exit(1)
 	}
-}
-
-func parseRepoURL(url string) (owner, repo string) {
-	// Remove protocol and domain if present
-	url = strings.TrimPrefix(url, "https://")
-	url = strings.TrimPrefix(url, "http://")
-	url = strings.TrimPrefix(url, "github.com/")
-
-	// Split remaining path into owner and repo
-	parts := strings.Split(url, "/")
-	if len(parts) != 2 {
-		return "", ""
-	}
-
-	return parts[0], parts[1]
 }

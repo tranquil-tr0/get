@@ -78,10 +78,9 @@ func (pm *PackageManager) UpdatePackage(pkgID string) error {
 	if len(parts) != 2 {
 		return fmt.Errorf("invalid package ID format: %s", pkgID)
 	}
-	owner, repo := parts[0], parts[1]
 
 	// Call Install() in install.go to install the latest version of the package
-	if err := pm.Install(owner, repo, pendingRelease.TagName); err != nil {
+	if err := pm.Install(pkgID, pendingRelease.TagName); err != nil {
 		return fmt.Errorf("failed to install update for %s: %v", pkgID, err)
 	}
 

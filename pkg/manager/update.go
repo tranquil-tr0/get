@@ -64,7 +64,7 @@ func (pm *PackageManager) UpdateAllPackages() error {
 
 	return nil
 }
-func (pm *PackageManager) UpdatePackageOrReturnVersions(pkgID string) (currentVersion int, latestVersion int, error error) {
+func (pm *PackageManager) UpdatePackageOrReturnVersions(pkgID string) (currentVersion int, latestVersion int, err error) {
 	//IMPLEMENTATION:
 	/*
 		1. From metadata, read the installed version of the package
@@ -95,7 +95,6 @@ func (pm *PackageManager) UpdatePackageOrReturnVersions(pkgID string) (currentVe
 	if len(parts) != 2 {
 		return 0, 0, fmt.Errorf("invalid package ID format: %s", pkgID)
 	}
-	owner, repo := parts[0], parts[1]
 
 	// Parse version numbers (removing 'v' prefix if present)
 	currentVersionStr := strings.TrimPrefix(pkg.Version, "v")
@@ -105,7 +104,7 @@ func (pm *PackageManager) UpdatePackageOrReturnVersions(pkgID string) (currentVe
 	}
 
 	// Call GetLatestRelease from client
-	latestRelease, err := pm.GithubClient.GetLatestRelease(owner, repo)
+	latestRelease, err := pm.GithubClient.GetLatestRelease(pkgID)
 	if err != nil {
 		return 0, 0, fmt.Errorf("failed to get latest release: %v", err)
 	}
