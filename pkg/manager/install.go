@@ -86,7 +86,7 @@ func (pm *PackageManager) InstallRelease(owner, repo string, release *github.Rel
 	var prevLine string
 
 	for _, line := range lines {
-		if strings.TrimSpace(prevLine) == "Installing:" {
+		if strings.TrimSpace(prevLine) == "Installing:" || strings.TrimSpace(prevLine) == "Upgrading:" {
 			aptPackageName = strings.TrimSpace(line)
 			break
 		}
