@@ -117,7 +117,11 @@ func (pm *PackageManager) UpdatePackageOrReturnVersions(pkgID string) (currentVe
 	}
 
 	output.PrintSuccess("Current version: %s, Latest version: %s", currentVersionStr, latestVersionStr)
-
+	var updatesExist bool = false
+	if latestVersionInt != currentVersionInt {
+		updatesExist = true
+	}
+	// Check if there are any pending updates
 	// Compare versions
 	if latestVersionInt > currentVersionInt {
 		// Check if the latest release has a .deb file
@@ -138,7 +142,11 @@ func (pm *PackageManager) UpdatePackageOrReturnVersions(pkgID string) (currentVe
 		}
 	}
 
-	// No update available
+	// Only return no update available if updatesExist is false
+	if !updatesExist {
+		return currentVersionInt, latestVersionInt, nil
+	}
+	// No updates available
 	return currentVersionInt, latestVersionInt, nil
 }
 
