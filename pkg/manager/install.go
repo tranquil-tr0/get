@@ -116,6 +116,18 @@ func (pm *PackageManager) InstallRelease(owner, repo string, release *github.Rel
 
 // Install does InstallRelease, but an extra version sanity check first
 func (pm *PackageManager) Install(owner, repo string, version string) error {
+	// Load metadata
+	metadata, metaErr := pm.LoadMetadata()
+	if metaErr != nil {
+		return metaErr
+	}
+
+	// Check if package is already installed
+	packageKey := fmt.Sprintf("%s/%s", owner, repo)
+	if _, exists := metadata.Packages[packageKey]; exists {
+		return fmt.Errorf("package %s is already installed", packageKey)
+	}
+
 	var release *github.Release
 	var releaseErr error
 

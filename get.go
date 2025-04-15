@@ -45,7 +45,7 @@ func main() {
 				Usage:       "Install a package from GitHub",
 				Description: "Install a package from a GitHub repository. The package must contain a .deb file in its latest release.",
 				ArgsUsage:   "<github-repo-url>",
-				Flags: []cli.Flag{
+				Flags: []cli.Flag{ //TODO: add flag for force install, even if package is already installed
 					&cli.StringFlag{
 						Name:    "release",
 						Aliases: []string{"r"},
