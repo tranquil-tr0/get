@@ -19,7 +19,7 @@ func (pm *PackageManager) PrintInstalledPackages() error {
 	}
 
 	for _, pkg := range metadata.Packages {
-		output.PrintNormal("  %s/%s (Version: %s, Installed: %s)", output.Bold(pkg.Owner), output.Bold(pkg.Repo), pkg.Version, pkg.InstalledAt)
+		output.PrintNormal(" %s/%s (Version: %s, Installed: %s)", output.Bold(pkg.Owner), output.Bold(pkg.Repo), pkg.Version, pkg.InstalledAt)
 		if pkg.AptName != "" {
 			output.PrintGreen("   └APT Package Name: %s", pkg.AptName)
 		}
