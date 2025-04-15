@@ -1,39 +1,29 @@
 package manager
 
 import (
-	"fmt"
-
 	"github.com/tranquil-tr0/get/pkg/output"
 )
 
-func (pm *PackageManager) PrintInstalledPackages() ([]PackageMetadata, error) {
+func (pm *PackageManager) PrintInstalledPackages() error {
 	metadata, loadErr := pm.LoadMetadata()
 	if loadErr != nil {
-		return nil, loadErr
+		return loadErr
 	}
 
-	packages := make([]PackageMetadata, 0, len(metadata.Packages))
+	if len(metadata.Packages) == 0 {
+		output.PrintNormal("No packages are currently installed.")
+		return nil
+	} else {
+		output.PrintTitle("Installed packages:")
+	}
+
 	for _, pkg := range metadata.Packages {
-		packages = append(packages, pkg)
-		fmt.Printf("Package: %s/%s (Version: %s)\n", pkg.Owner, pkg.Repo, pkg.Version)
+		output.PrintNormal("%s/%s (Version: %s, Installed: %s)", output.Bold(pkg.Owner), output.Bold(pkg.Repo), pkg.Version, pkg.InstalledAt)
 		if pkg.AptName != "" {
-			output.PrintGreen("APT Package: %s", pkg.AptName)
+			output.PrintGreen("    APT Package Name: %s", pkg.AptName)
 		}
-		fmt.Println()
+		output.PrintNormal("")
 	}
 
-	return packages, nil
-}
-
-func (pm *PackageManager) GetPackage(pkgID string) (*PackageMetadata, error) {
-	metadata, err := pm.LoadMetadata()
-	if err != nil {
-		return nil, err
-	}
-
-	pkg, exists := metadata.Packages[pkgID]
-	if !exists {
-		return nil, fmt.Errorf("package %s not found", pkgID)
-	}
-	return &pkg, nil
+	return nil
 }

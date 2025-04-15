@@ -92,3 +92,17 @@ func (pm *PackageManager) GetPendingUpdates() (map[string]github.Release, error)
 
 	return metadata.PendingUpdates, nil
 }
+
+// GetPackage retrieves a package by its ID from the metadata.
+func (pm *PackageManager) GetPackage(pkgID string) (*PackageMetadata, error) {
+	metadata, err := pm.LoadMetadata()
+	if err != nil {
+		return nil, err
+	}
+
+	pkg, exists := metadata.Packages[pkgID]
+	if !exists {
+		return nil, fmt.Errorf("package %s not found", pkgID)
+	}
+	return &pkg, nil
+}

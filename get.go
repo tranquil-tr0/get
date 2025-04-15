@@ -84,19 +84,10 @@ func main() {
 					},
 				},
 				Action: func(c *cli.Context) error {
-					packages, err := pm.PrintInstalledPackages()
+					// Remove the unused variable declaration
+					err := pm.PrintInstalledPackages()
 					if err != nil {
 						return fmt.Errorf("Error listing packages: %v", err)
-					}
-
-					if len(packages) == 0 {
-						fmt.Println("No packages installed")
-						return nil
-					}
-
-					fmt.Println("Installed packages:")
-					for _, pkg := range packages {
-						fmt.Printf("%s/%s (version: %s, installed: %s)\n", pkg.Owner, pkg.Repo, pkg.Version, pkg.InstalledAt)
 					}
 					return nil
 				},
