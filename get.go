@@ -1,3 +1,7 @@
+/* TODO:
+- implement autocomplete
+*/
+
 package main
 
 import (
