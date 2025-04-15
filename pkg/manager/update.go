@@ -31,7 +31,8 @@ func (pm *PackageManager) UpdateAllPackages() error {
 	for pkgID, pkg := range metadata.Packages {
 		// Call UpdatePackageOrReturnVersions for each package
 		currentVersion, latestVersion, updateErr := pm.UpdatePackageOrReturnVersions(pkgID)
-
+		// LOGGING Print current version, latest version, and any error
+		output.PrintError("Current version: %d, Latest version: %d, Error: %v", currentVersion, latestVersion, updateErr)
 		// Print error if any
 		if updateErr != nil {
 			output.PrintError("Error checking for updates for %s: %v", pkgID, updateErr)
@@ -116,12 +117,6 @@ func (pm *PackageManager) UpdatePackageOrReturnVersions(pkgID string) (currentVe
 		return 0, 0, fmt.Errorf("failed to parse latest version: %v", err)
 	}
 
-	output.PrintError("1")
-	// Check if there are any updates
-	var updatesExist bool = false
-	if latestVersionInt != currentVersionInt {
-		updatesExist = true
-	}
 	// Check if there are any pending updates
 	// Compare versions
 	if latestVersionInt > currentVersionInt {
@@ -130,7 +125,6 @@ func (pm *PackageManager) UpdatePackageOrReturnVersions(pkgID string) (currentVe
 			// No .deb file in the latest release
 			return currentVersionInt, latestVersionInt, fmt.Errorf("latest release does not contain a .deb file")
 		} else {
-			output.PrintError("2")
 			// Check if a pending update is already listed for this package
 			_, updateExists := metadata.PendingUpdates[pkgID]
 			if !updateExists {
@@ -140,18 +134,11 @@ func (pm *PackageManager) UpdatePackageOrReturnVersions(pkgID string) (currentVe
 					return 0, 0, fmt.Errorf("failed to save metadata: %v", err)
 				}
 			}
-			output.PrintError("3")
-			// Print package, current version in red, and latest version in green
-			output.PrintNormal("Package: %s, Current Version: %s, Latest Version: %s", pkgID, output.Red(currentVersionStr), output.Green(latestVersionStr))
 
 			return currentVersionInt, latestVersionInt, nil
 		}
 	}
 
-	// Only return no update available if updatesExist is false
-	if !updatesExist {
-		return currentVersionInt, latestVersionInt, nil
-	}
 	// No updates available
 	return currentVersionInt, latestVersionInt, nil
 }
