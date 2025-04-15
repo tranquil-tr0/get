@@ -59,16 +59,9 @@ func main() {
 					}
 
 					repoURL := c.Args().First()
-
 					owner, repo := parseRepoURL(repoURL)
 					if owner == "" || repo == "" {
 						return fmt.Errorf("Invalid GitHub repository URL")
-					}
-
-					// Check if this was a short format URL and display a message
-					if !strings.Contains(repoURL, "github.com") && !strings.HasPrefix(repoURL, "http") {
-						fullURL := fmt.Sprintf("https://github.com/%s/%s", owner, repo)
-						fmt.Printf("Automatically selecting link \"%s\"\n", fullURL)
 					}
 
 					if err := pm.Install(owner, repo, c.String("release")); err != nil {
@@ -91,7 +84,7 @@ func main() {
 					},
 				},
 				Action: func(c *cli.Context) error {
-					packages, err := pm.ListPackages()
+					packages, err := pm.PrintInstalledPackages()
 					if err != nil {
 						return fmt.Errorf("Error listing packages: %v", err)
 					}
@@ -152,22 +145,9 @@ func main() {
 					},
 				},
 				Action: func(c *cli.Context) error {
-					if err := pm.CheckForUpdates(); err != nil {
-						return fmt.Errorf("Error checking updates: %v", err)
-					}
-					if len(pm.PendingUpdates) == 0 {
-						fmt.Println("All packages are up to date")
-					} else {
-						output.PrintTitle("Available updates:")
-						fmt.Println("--------------------")
-						for pkgID, release := range pm.PendingUpdates {
-							pkg, err := pm.GetPackage(pkgID)
-							if err != nil {
-								output.PrintError("Warning: could not retrieve package %s: %v", pkgID, err)
-								continue
-							}
-							fmt.Printf("%s - current: %s, available: %s\n", output.Bold(pkgID), output.Yellow(pkg.Version), output.Green(release.TagName))
-						}
+					output.PrintAction("Checking for updates...")
+					if err := pm.UpdateAllPackages(); err != nil {
+						return fmt.Errorf("Error checking for updates: %v", err)
 					}
 					return nil
 				},
@@ -175,7 +155,7 @@ func main() {
 			{
 				Name:        "upgrade",
 				Category:    "Package Management",
-				Usage:       "Upgrade outdated packages",
+				Usage:       "Apply staged upgrades",
 				Description: "Install available updates for packages",
 				Flags: []cli.Flag{
 					&cli.BoolFlag{
@@ -185,9 +165,38 @@ func main() {
 					},
 				},
 				Action: func(c *cli.Context) error {
-					if err := pm.UpdateAll(); err != nil {
+					output.PrintAction("Upgrading packages...")
+					if err := pm.UpgradeAllPackages(); err != nil {
 						return fmt.Errorf("Error upgrading packages: %v", err)
 					}
+					output.PrintSuccess("Successfully applied all available updates")
+					return nil
+				},
+			},
+			{
+				Name:        "update-upgrade",
+				Category:    "Package Management",
+				Aliases:     []string{"uu", "up"},
+				Usage:       "Upgrade outdated packages",
+				Description: "Check for updates then upgrade outdated packages",
+				Flags: []cli.Flag{
+					&cli.BoolFlag{
+						Name:    "verbose",
+						Aliases: []string{"v"},
+						Usage:   "Enable verbose output",
+					},
+				},
+				Action: func(c *cli.Context) error {
+					output.PrintAction("Checking for updates...")
+					if err := pm.UpdateAllPackages(); err != nil {
+						return fmt.Errorf("Error checking for updates: %v", err)
+					}
+
+					output.PrintAction("Applying updates...")
+					if err := pm.UpgradeAllPackages(); err != nil {
+						return fmt.Errorf("Error upgrading packages: %v", err)
+					}
+
 					output.PrintSuccess("Successfully applied all available updates")
 					return nil
 				},
@@ -203,8 +212,6 @@ func main() {
 
 func parseRepoURL(url string) (owner, repo string) {
 	// Remove protocol and domain if present
-	// This function already handles the <user>/<repo> format correctly
-	// by removing any prefixes and splitting by '/'
 	url = strings.TrimPrefix(url, "https://")
 	url = strings.TrimPrefix(url, "http://")
 	url = strings.TrimPrefix(url, "github.com/")
