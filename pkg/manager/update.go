@@ -137,6 +137,9 @@ func (pm *PackageManager) UpdatePackageOrReturnVersions(pkgID string) (currentVe
 				if err := pm.SaveMetadata(metadata); err != nil {
 					return 0, 0, fmt.Errorf("failed to save metadata: %v", err)
 				}
+			} else {
+				// Pending update already exists, return current and latest versions
+				return currentVersionInt, latestVersionInt, nil
 			}
 
 			// Print package, current version in red, and latest version in green
