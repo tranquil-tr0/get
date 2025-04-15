@@ -7,7 +7,7 @@ import (
 )
 
 func (pm *PackageManager) PrintInstalledPackages() ([]PackageMetadata, error) {
-	metadata, loadErr := pm.loadMetadata()
+	metadata, loadErr := pm.LoadMetadata()
 	if loadErr != nil {
 		return nil, loadErr
 	}
@@ -26,7 +26,7 @@ func (pm *PackageManager) PrintInstalledPackages() ([]PackageMetadata, error) {
 }
 
 func (pm *PackageManager) GetPackage(pkgID string) (*PackageMetadata, error) {
-	metadata, err := pm.loadMetadata()
+	metadata, err := pm.LoadMetadata()
 	if err != nil {
 		return nil, err
 	}

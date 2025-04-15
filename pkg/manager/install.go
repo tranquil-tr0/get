@@ -12,7 +12,7 @@ import (
 	"github.com/tranquil-tr0/get/pkg/github"
 )
 
-func (pm *PackageManager) installRelease(owner, repo string, release *github.Release) error {
+func (pm *PackageManager) InstallRelease(owner, repo string, release *github.Release) error {
 	debPackage := release.FindDebPackage()
 	if debPackage == nil {
 		return fmt.Errorf("no .deb package found in release")
@@ -98,7 +98,7 @@ func (pm *PackageManager) installRelease(owner, repo string, release *github.Rel
 	}
 
 	// Update metadata
-	metadata, metaErr := pm.loadMetadata()
+	metadata, metaErr := pm.LoadMetadata()
 	if metaErr != nil {
 		return metaErr
 	}
@@ -111,9 +111,10 @@ func (pm *PackageManager) installRelease(owner, repo string, release *github.Rel
 		AptName:     aptPackageName,
 	}
 
-	return pm.saveMetadata(metadata)
+	return pm.SaveMetadata(metadata)
 }
 
+// Install does InstallRelease, but an extra version sanity check first
 func (pm *PackageManager) Install(owner, repo string, version string) error {
 	var release *github.Release
 	var releaseErr error
@@ -127,5 +128,5 @@ func (pm *PackageManager) Install(owner, repo string, version string) error {
 		return releaseErr
 	}
 
-	return pm.installRelease(owner, repo, release)
+	return pm.InstallRelease(owner, repo, release)
 }

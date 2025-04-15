@@ -37,7 +37,7 @@ func NewPackageManager(metadataPath string) *PackageManager {
 	}
 }
 
-func (pm *PackageManager) loadMetadata() (*Metadata, error) {
+func (pm *PackageManager) LoadMetadata() (*Metadata, error) {
 	metadata := &Metadata{
 		Packages:       make(map[string]PackageMetadata),
 		PendingUpdates: make(map[string]github.Release),
@@ -59,7 +59,7 @@ func (pm *PackageManager) loadMetadata() (*Metadata, error) {
 	return metadata, nil
 }
 
-func (pm *PackageManager) saveMetadata(metadata *Metadata) error {
+func (pm *PackageManager) SaveMetadata(metadata *Metadata) error {
 	data, marshalErr := json.MarshalIndent(metadata, "", "  ")
 	if marshalErr != nil {
 		return fmt.Errorf("failed to marshal metadata: %v", marshalErr)
@@ -74,4 +74,21 @@ func (pm *PackageManager) saveMetadata(metadata *Metadata) error {
 
 func (pm *PackageManager) SetVerbose(verbose bool) {
 	pm.Verbose = verbose
+}
+
+// GetPendingUpdates returns the pending updates from the metadata.
+// Returns an error if there are no pending updates available.
+func (pm *PackageManager) GetPendingUpdates() (map[string]github.Release, error) {
+	// Load the metadata to get pending updates
+	metadata, err := pm.LoadMetadata()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load metadata: %v", err)
+	}
+
+	// Check if there are pending updates
+	if len(metadata.PendingUpdates) == 0 {
+		return nil, fmt.Errorf("no pending updates available")
+	}
+
+	return metadata.PendingUpdates, nil
 }

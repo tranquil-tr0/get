@@ -6,7 +6,7 @@ import (
 )
 
 func (pm *PackageManager) Remove(owner, repo string) error {
-	metadata, loadErr := pm.loadMetadata()
+	metadata, loadErr := pm.LoadMetadata()
 	if loadErr != nil {
 		return loadErr
 	}
@@ -29,5 +29,5 @@ func (pm *PackageManager) Remove(owner, repo string) error {
 	}
 
 	delete(metadata.Packages, packageKey)
-	return pm.saveMetadata(metadata)
+	return pm.SaveMetadata(metadata)
 }

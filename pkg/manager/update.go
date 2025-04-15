@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
+	"github.com/tranquil-tr0/get/pkg/output"
 )
 
 func (pm *PackageManager) UpdateAllPackages() error {
@@ -17,7 +19,7 @@ func (pm *PackageManager) UpdateAllPackages() error {
 	*/
 
 	// Load metadata to get list of installed packages
-	metadata, err := pm.loadMetadata()
+	metadata, err := pm.LoadMetadata()
 	if err != nil {
 		return fmt.Errorf("failed to load metadata: %v", err)
 	}
@@ -32,31 +34,31 @@ func (pm *PackageManager) UpdateAllPackages() error {
 
 		// Print error if any
 		if updateErr != nil {
-			fmt.Printf("Error checking for updates for %s: %v\n", pkgID, updateErr)
+			output.PrintError("Error checking for updates for %s: %v", pkgID, updateErr)
 			continue
 		}
 
 		// Print available update if current version is different from latest version
 		if currentVersion != latestVersion {
-			fmt.Printf("Update available for %s: %s -> %s\n",
+			output.PrintYellow("Update available for %s: %s -> %s",
 				pkgID, pkg.Version, metadata.PendingUpdates[pkgID].TagName)
 			updatesFound = true
 		}
 	}
 
 	// Check metadata for duplicate pending updates and remove them
-	metadata, err = pm.loadMetadata() // Reload to get latest state
+	metadata, err = pm.LoadMetadata() // Reload to get latest state
 	if err != nil {
 		return fmt.Errorf("failed to reload metadata: %v", err)
 	}
 
 	// Save metadata back
-	if err := pm.saveMetadata(metadata); err != nil {
+	if err := pm.SaveMetadata(metadata); err != nil {
 		return fmt.Errorf("failed to save metadata: %v", err)
 	}
 
 	if !updatesFound {
-		fmt.Println("No updates available.")
+		output.PrintYellow("No updates available.")
 	}
 
 	return nil
@@ -77,7 +79,7 @@ func (pm *PackageManager) UpdatePackageOrReturnVersions(pkgID string) (currentVe
 	*/
 
 	// From metadata, read the installed version of the package
-	metadata, err := pm.loadMetadata()
+	metadata, err := pm.LoadMetadata()
 	if err != nil {
 		return 0, 0, fmt.Errorf("failed to load metadata: %v", err)
 	}
@@ -123,7 +125,7 @@ func (pm *PackageManager) UpdatePackageOrReturnVersions(pkgID string) (currentVe
 			if !updateExists {
 				// Add the package and its latest version to pending updates
 				metadata.PendingUpdates[pkgID] = *latestRelease
-				if err := pm.saveMetadata(metadata); err != nil {
+				if err := pm.SaveMetadata(metadata); err != nil {
 					return 0, 0, fmt.Errorf("failed to save metadata: %v", err)
 				}
 			}

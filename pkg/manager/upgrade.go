@@ -3,45 +3,44 @@ package manager
 import (
 	"fmt"
 	"strings"
+
+	"github.com/tranquil-tr0/get/pkg/output"
 )
 
 func (pm *PackageManager) UpgradeAllPackages() error {
 	// IMPLEMENTATION:
 	/*
-		1. Load the get metadata using manager.go
-		2. Check metadata for pending updates
-		3. If there are pending updates, [for each package with pending update]
+		1. Get pending updates using pm.GetPendingUpdates()
+		2. If there are pending updates, [for each package with pending update]
 			1. Call UpdatePackage(PackageID)
-		4. In addition to error logging already implemented, if there still exist pending updates, return an error
-		5. If no errors, now return nil
+		3. In addition to error logging already implemented, if there still exist pending updates, return an error
+		4. If no errors, now return nil
 	*/
 
-	// Load the get metadata using manager.go
-	metadata, err := pm.loadMetadata()
+	// Get pending updates using pm.GetPendingUpdates()
+	pendingUpdates, err := pm.GetPendingUpdates()
 	if err != nil {
-		return fmt.Errorf("failed to load metadata: %v", err)
-	}
-
-	// Check metadata for pending updates
-	if len(metadata.PendingUpdates) == 0 {
-		fmt.Println("No pending updates available.")
+		output.PrintYellow("No pending updates available.")
 		return nil
 	}
 
+	// If there are pending updates, print the number of pending updates available
+	output.PrintYellow("Found %d pending updates.", len(pendingUpdates))
+
 	// If there are pending updates, call UpdatePackage for each package with pending update
 	updateErrors := false
-	for pkgID := range metadata.PendingUpdates {
-		fmt.Printf("Upgrading %s...\n", pkgID)
+	for pkgID := range pendingUpdates {
+		output.PrintAction("Upgrading %s...", pkgID)
 		if updateErr := pm.UpdatePackage(pkgID); updateErr != nil { // Changed variable name to updateErr
-			fmt.Printf("Error upgrading %s: %v\n", pkgID, updateErr)
+			output.PrintError("Error upgrading %s: %v", pkgID, updateErr)
 			updateErrors = true
 		} else {
-			fmt.Printf("Successfully upgraded %s\n", pkgID)
+			output.PrintSuccess("Successfully upgraded %s", pkgID)
 		}
 	}
 
 	// Reload metadata to check if there are still pending updates
-	metadata, err = pm.loadMetadata()
+	metadata, err := pm.LoadMetadata()
 	if err != nil {
 		return fmt.Errorf("failed to reload metadata: %v", err)
 	}
@@ -63,7 +62,7 @@ func (pm *PackageManager) UpdatePackage(pkgID string) error {
 	*/
 
 	// Load metadata to check for pending updates
-	metadata, err := pm.loadMetadata()
+	metadata, err := pm.LoadMetadata()
 	if err != nil {
 		return fmt.Errorf("failed to load metadata: %v", err)
 	}
@@ -88,7 +87,7 @@ func (pm *PackageManager) UpdatePackage(pkgID string) error {
 
 	// Remove the package from pending updates in metadata
 	delete(metadata.PendingUpdates, pkgID)
-	if err := pm.saveMetadata(metadata); err != nil {
+	if err := pm.SaveMetadata(metadata); err != nil {
 		return fmt.Errorf("failed to update metadata after upgrade: %v", err)
 	}
 

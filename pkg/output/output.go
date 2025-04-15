@@ -49,7 +49,7 @@ func PrintYellow(format string, a ...interface{}) {
 	fmt.Printf("%s\n", Yellow(msg))
 }
 
-// PrintYellow prints the message in yellow color
+// PrintAction calls PrintYellow
 func PrintAction(format string, a ...interface{}) {
 	msg := fmt.Sprintf(format, a...)
 	PrintYellow("%s", msg)
@@ -65,4 +65,10 @@ func PrintWarn(format string, a ...interface{}) {
 func PrintSuccess(format string, a ...interface{}) {
 	msg := fmt.Sprintf(format, a...)
 	fmt.Printf("%s\n", Bold(Green(msg)))
+}
+
+// PrintNormal prints the message in normal format
+func PrintNormal(format string, a ...interface{}) {
+	msg := fmt.Sprintf(format, a...)
+	fmt.Printf("%s\n", msg)
 }
