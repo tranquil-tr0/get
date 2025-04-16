@@ -6,7 +6,7 @@ import (
 )
 
 func (pm *PackageManager) Remove(pkgID string) error {
-	metadata, loadErr := pm.LoadMetadata()
+	metadata, loadErr := pm.GetPackageManagerMetadata()
 	if loadErr != nil {
 		return loadErr
 	}

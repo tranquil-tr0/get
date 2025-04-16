@@ -5,7 +5,7 @@ import (
 )
 
 func (pm *PackageManager) PrintInstalledPackages() error {
-	metadata, loadErr := pm.LoadMetadata()
+	metadata, loadErr := pm.GetPackageManagerMetadata()
 	if loadErr != nil {
 		return loadErr
 	}

@@ -18,7 +18,7 @@ func (pm *PackageManager) UpgradeAllPackages() error {
 	*/
 
 	// Get pending updates using pm.GetPendingUpdates()
-	pendingUpdates, err := pm.GetPendingUpdates()
+	pendingUpdates, err := pm.GetAllPendingUpdates()
 	if err != nil {
 		output.PrintYellow("No pending updates available.")
 		return nil
@@ -31,7 +31,7 @@ func (pm *PackageManager) UpgradeAllPackages() error {
 	updateErrors := false
 	for pkgID := range pendingUpdates {
 		output.PrintAction("Upgrading %s...", pkgID)
-		if updateErr := pm.UpdatePackage(pkgID); updateErr != nil { // Changed variable name to updateErr
+		if updateErr := pm.UpgradeSpecificPackage(pkgID); updateErr != nil { // Changed variable name to updateErr
 			output.PrintError("Error upgrading %s: %v", pkgID, updateErr)
 			updateErrors = true
 		} else {
@@ -40,7 +40,7 @@ func (pm *PackageManager) UpgradeAllPackages() error {
 	}
 
 	// Reload metadata to check if there are still pending updates
-	metadata, err := pm.LoadMetadata()
+	metadata, err := pm.GetPackageManagerMetadata()
 	if err != nil {
 		return fmt.Errorf("failed to reload metadata: %v", err)
 	}
@@ -53,7 +53,7 @@ func (pm *PackageManager) UpgradeAllPackages() error {
 	return nil
 }
 
-func (pm *PackageManager) UpdatePackage(pkgID string) error {
+func (pm *PackageManager) UpgradeSpecificPackage(pkgID string) error {
 	// IMPLEMENTATION:
 	/*
 		1. If there are pending updates for the package identified by pkgID,
@@ -62,15 +62,15 @@ func (pm *PackageManager) UpdatePackage(pkgID string) error {
 	*/
 
 	// Load metadata to check for pending updates
-	metadata, err := pm.LoadMetadata()
+	metadata, err := pm.GetPackageManagerMetadata()
 	if err != nil {
 		return fmt.Errorf("failed to load metadata: %v", err)
 	}
 
-	// Check if there are pending updates for the package identified by pkgID
-	pendingRelease, exists := metadata.PendingUpdates[pkgID]
-	if !exists {
-		return fmt.Errorf("no pending update for package %s", pkgID)
+	// get the pending update version
+	pendingRelease, err := pm.GetPendingUpdate(pkgID)
+	if err != nil {
+		return fmt.Errorf("failed checking for pending updates %s", err)
 	}
 
 	// Parse owner and repo from pkgID (format: owner/repo)
@@ -79,8 +79,8 @@ func (pm *PackageManager) UpdatePackage(pkgID string) error {
 		return fmt.Errorf("invalid package ID format: %s", pkgID)
 	}
 
-	// Call Install() in install.go to install the latest version of the package
-	if err := pm.Install(pkgID, pendingRelease.TagName); err != nil {
+	// Call InstallRelease() in install.go to install the latest version of the package
+	if err := pm.InstallRelease(pkgID, pendingRelease); err != nil {
 		return fmt.Errorf("failed to install update for %s: %v", pkgID, err)
 	}
 

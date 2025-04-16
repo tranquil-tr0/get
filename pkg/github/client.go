@@ -32,19 +32,15 @@ func NewClient() *Client {
 }
 
 func (c *Client) GetLatestRelease(pkgID string) (*Release, error) {
-	parts := strings.Split(pkgID, "/")
-	if len(parts) != 2 {
-		return nil, fmt.Errorf("invalid package ID format, expected 'owner/repo'")
-	}
-	return c.GetReleaseByTag(parts[0], parts[1], "latest")
+	return c.GetReleaseByTag(pkgID, "latest")
 }
 
-func (c *Client) GetReleaseByTag(owner, repo, tag string) (*Release, error) {
+func (c *Client) GetReleaseByTag(pkgID, tag string) (*Release, error) {
 	var url string
 	if tag == "latest" {
-		url = fmt.Sprintf("https://api.github.com/repos/%s/%s/releases/latest", owner, repo)
+		url = fmt.Sprintf("https://api.github.com/repos/%s/releases/latest", pkgID)
 	} else {
-		url = fmt.Sprintf("https://api.github.com/repos/%s/%s/releases/tags/%s", owner, repo, tag)
+		url = fmt.Sprintf("https://api.github.com/repos/%s/releases/tags/%s", pkgID, tag)
 	}
 
 	resp, err := c.HttpClient.Get(url)
@@ -91,7 +87,7 @@ func (c *Client) GetLatestVersionNumber(pkgID string) (string, error) {
 	// Validate version format (semver-like)
 	matched, err := regexp.MatchString(`^\d+\.\d+\.\d+$`, version)
 	if !matched || err != nil {
-		return "", fmt.Errorf("invalid version format in tag: %s", release.TagName)
+		return "", fmt.Errorf("invalid version format in tag: %s read as %s", release.TagName, version)
 	}
 
 	return version, nil

@@ -12,7 +12,6 @@ type PackageManager struct {
 	MetadataPath   string
 	GithubClient   *github.Client
 	Verbose        bool
-	PendingUpdates map[string]github.Release // Tracks available updates
 }
 
 type PackageMetadata struct {
@@ -23,24 +22,24 @@ type PackageMetadata struct {
 	AptName     string `json:"apt_name"`
 }
 
-type Metadata struct {
-	Packages       map[string]PackageMetadata `json:"packages"`
-	PendingUpdates map[string]github.Release  `json:"pending_updates"`
+type PackageManagerMetadata struct {
+	Packages       map[string]PackageMetadata `json:"packages"` // map[pkgID] = PackageMetadata of the package
+	PendingUpdates map[string]string `json:"pending_updates"` // map[pkgID] = latest_version
 }
 
+// Returns a new PackageManager struct that stores metadata at the path
 func NewPackageManager(metadataPath string) *PackageManager {
 	return &PackageManager{
 		MetadataPath:   metadataPath,
 		GithubClient:   github.NewClient(),
 		Verbose:        false,
-		PendingUpdates: make(map[string]github.Release),
 	}
 }
 
-func (pm *PackageManager) LoadMetadata() (*Metadata, error) {
-	metadata := &Metadata{
+func (pm *PackageManager) GetPackageManagerMetadata() (*PackageManagerMetadata, error) {
+	metadata := &PackageManagerMetadata{
 		Packages:       make(map[string]PackageMetadata),
-		PendingUpdates: make(map[string]github.Release),
+		PendingUpdates: make(map[string]string),
 	}
 
 	if _, statErr := os.Stat(pm.MetadataPath); os.IsNotExist(statErr) {
@@ -59,14 +58,15 @@ func (pm *PackageManager) LoadMetadata() (*Metadata, error) {
 	return metadata, nil
 }
 
-func (pm *PackageManager) SaveMetadata(metadata *Metadata) error {
-	data, marshalErr := json.MarshalIndent(metadata, "", "  ")
-	if marshalErr != nil {
-		return fmt.Errorf("failed to marshal metadata: %v", marshalErr)
+//adds metadata to PackageManagerMetadata
+func (pm *PackageManager) SaveMetadata(metadata *PackageManagerMetadata) error {
+	data, err := json.MarshalIndent(metadata, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal metadata: %v", err)
 	}
 
-	if writeErr := os.WriteFile(pm.MetadataPath, data, 0644); writeErr != nil {
-		return fmt.Errorf("failed to write metadata file: %v", writeErr)
+	if err := os.WriteFile(pm.MetadataPath, data, 0644); err != nil {
+		return fmt.Errorf("failed to write metadata file: %v", err)
 	}
 
 	return nil
@@ -78,9 +78,9 @@ func (pm *PackageManager) SetVerbose(verbose bool) {
 
 // GetPendingUpdates returns the pending updates from the metadata.
 // Returns an error if there are no pending updates available.
-func (pm *PackageManager) GetPendingUpdates() (map[string]github.Release, error) {
+func (pm *PackageManager) GetAllPendingUpdates() (map[string]string, error) {
 	// Load the metadata to get pending updates
-	metadata, err := pm.LoadMetadata()
+	metadata, err := pm.GetPackageManagerMetadata()
 	if err != nil {
 		return nil, fmt.Errorf("failed to load metadata: %v", err)
 	}
@@ -91,6 +91,24 @@ func (pm *PackageManager) GetPendingUpdates() (map[string]github.Release, error)
 	}
 
 	return metadata.PendingUpdates, nil
+}
+
+// returns the version with a pending update of the package
+// if version="", the pkgID does NOT have a version or does not exist
+func (pm *PackageManager) GetPendingUpdate(pkgID string) (version string, err error) {
+	//check if pkg has a pending update, cannot do if no
+	metadata, err := pm.GetPackageManagerMetadata()
+	if err != nil {
+		return "", fmt.Errorf("error loading metadata: %v", err)
+	}
+	value, exists := metadata.PendingUpdates[pkgID]
+	if !exists {
+		// Key does NOT exist
+		return "", fmt.Errorf("%s has no pending updates", pkgID)
+	} else {
+		// Key does not exist
+		return value, nil
+	}
 }
 
 // GetPackage retrieves a package by its ID from the metadata.

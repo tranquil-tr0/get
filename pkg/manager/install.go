@@ -1,3 +1,6 @@
+/*
+ * TODO: if more than one deb package do interactive prompt, best implemented in Install()
+*/
 package manager
 
 import (
@@ -12,7 +15,7 @@ import (
 	"github.com/tranquil-tr0/get/pkg/github"
 )
 
-func (pm *PackageManager) InstallRelease(owner, repo string, release *github.Release) error {
+func (pm *PackageManager) InstallRelease(pkgID string, release *github.Release) error {
 	debPackage := release.FindDebPackage()
 	if debPackage == nil {
 		return fmt.Errorf("no .deb package found in release")
@@ -98,12 +101,21 @@ func (pm *PackageManager) InstallRelease(owner, repo string, release *github.Rel
 	}
 
 	// Update metadata
-	metadata, metaErr := pm.LoadMetadata()
+	metadata, metaErr := pm.GetPackageManagerMetadata()
 	if metaErr != nil {
 		return metaErr
 	}
 
-	metadata.Packages[fmt.Sprintf("%s/%s", owner, repo)] = PackageMetadata{
+	var owner, repo string
+	parts := strings.Split(pkgID, "/")
+	if len(parts) >= 2 {
+		owner, repo = parts[0], parts[1]
+		// handle the owner and repo here
+	} else {
+		return fmt.Errorf("failed to find owner and repo from pkgID")// Handle the case where the split does not produce two parts
+	}
+
+	metadata.Packages[pkgID] = PackageMetadata{
 		Owner:       owner,
 		Repo:        repo,
 		Version:     release.TagName,
@@ -114,16 +126,10 @@ func (pm *PackageManager) InstallRelease(owner, repo string, release *github.Rel
 	return pm.SaveMetadata(metadata)
 }
 
-// Install does InstallRelease, but an extra version sanity check first
+// Install does InstallRelease, but an additional version and already installed sanity check
 func (pm *PackageManager) Install(pkgID string, version string) error {
-	parts := strings.Split(pkgID, "/")
-	if len(parts) != 2 {
-		return fmt.Errorf("invalid package ID format, expected 'owner/repo'")
-	}
-	owner, repo := parts[0], parts[1]
-
 	// Load metadata
-	metadata, metaErr := pm.LoadMetadata()
+	metadata, metaErr := pm.GetPackageManagerMetadata()
 	if metaErr != nil {
 		return metaErr
 	}
@@ -133,17 +139,29 @@ func (pm *PackageManager) Install(pkgID string, version string) error {
 		return fmt.Errorf("package %s is already installed", pkgID)
 	}
 
+	// check if version specified, and fetches latest by default or specified version
 	var release *github.Release
-	var releaseErr error
-
+	var err error
 	if version == "" {
-		release, releaseErr = pm.GithubClient.GetLatestRelease(pkgID)
+		release, err = pm.GithubClient.GetLatestRelease(pkgID)
 	} else {
-		release, releaseErr = pm.GithubClient.GetReleaseByTag(owner, repo, version)
+		release, err = pm.GithubClient.GetReleaseByTag(pkgID, version)
 	}
-	if releaseErr != nil {
-		return releaseErr
+	if err != nil {
+		return fmt.Errorf("error fetching latest release: %s", err)
 	}
 
-	return pm.InstallRelease(owner, repo, release)
+	// install the package with a call to InstallRelease, and returns error
+	return pm.InstallRelease(pkgID, release)
+}
+
+// InstallVersion does InstallRelease after fetching the release based on version
+func (pm *PackageManager) InstallVersion(pkgID string, version string) error {
+	// get the Release
+	release, err := pm.GithubClient.GetReleaseByTag(pkgID, version)
+	if err != nil {
+	return fmt.Errorf("error fetching latest release: %s", err)
+	}
+	// install the package with a call to InstallRelease, and returns error
+	return pm.InstallRelease(pkgID, release)
 }

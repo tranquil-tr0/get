@@ -23,7 +23,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	metadataPath := filepath.Join(homeDir, ".get-metadata.json")
+	metadataPath := filepath.Join(homeDir, ".local/share/get/get.json")
 	pm := manager.NewPackageManager(metadataPath)
 
 	app := &cli.App{
