@@ -1,3 +1,6 @@
+/*
+  TODO: refactor PackageMetadata to save pkgID instead of owner, repo
+ */
 package manager
 
 import (
@@ -101,19 +104,19 @@ func (pm *PackageManager) GetPendingUpdate(pkgID string) (version string, err er
 	if err != nil {
 		return "", fmt.Errorf("error loading metadata: %v", err)
 	}
-	value, exists := metadata.PendingUpdates[pkgID]
+	version, exists := metadata.PendingUpdates[pkgID]
 	if !exists {
-		// Key does NOT exist
-		return "", fmt.Errorf("%s has no pending updates", pkgID)
+		// package does NOT have a pending update, but no error
+		return "", nil
 	} else {
-		// Key does not exist
-		return value, nil
+		// return version
+		return version, nil
 	}
 }
 
 // GetPackage retrieves a package by its ID from the metadata.
 func (pm *PackageManager) GetPackage(pkgID string) (*PackageMetadata, error) {
-	metadata, err := pm.LoadMetadata()
+	metadata, err := pm.GetPackageManagerMetadata()
 	if err != nil {
 		return nil, err
 	}

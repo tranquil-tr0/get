@@ -54,9 +54,6 @@ func (pm *PackageManager) UpdateAllPackages() error {
 		return fmt.Errorf("failed to reload metadata: %v", err)
 	}
 
-	// Remove duplicates from PendingUpdates (if any)
-	metadata.PendingUpdates = RemoveDuplicateUpdates(metadata.PendingUpdates)
-
 	// Save metadata back
 	if err := pm.SaveMetadata(metadata); err != nil {
 		return fmt.Errorf("failed to save metadata: %v", err)
@@ -126,11 +123,11 @@ func (pm *PackageManager) UpdatePackageOrReturnVersions(pkgID string) (currentVe
 			return currentVersion, latestVersion, fmt.Errorf("latest release does not contain a .deb file")
 		} else { //there is a deb package
 			// Check if a pending update is already listed for this package
-			updateExists, err := pm.HasPendingUpdate(pkgID)
+			updateVersion, err := pm.GetPendingUpdate(pkgID)
 			if err != nil {
 				return currentVersion, latestVersion, fmt.Errorf("error checking for existing updates: %s", err)
 			}
-			if !updateExists {
+			if updateVersion == "" { // if there is no pending update
 				// Add the package and its latest version to pending updates
 				if err := pm.SaveMetadata(metadata); err != nil {
 					return 0, 0, fmt.Errorf("failed to save metadata: %v", err)
@@ -180,20 +177,4 @@ func parseVersionToInt(version string) (int, error) {
 	}
 
 	return result, nil
-}
-
-
-func RemoveDuplicateUpdates(pendingUpdates [][2]string) [][2]string {
-	seen := make(map[string]bool)
-	var uniqueUpdates [][2]string
-
-	for _, update := range pendingUpdates {
-		pkgID := update[0]
-		if !seen[pkgID] {
-			uniqueUpdates = append(uniqueUpdates, update)
-			seen[pkgID] = true
-		}
-	}
-
-	return uniqueUpdates
 }

@@ -80,7 +80,7 @@ func (pm *PackageManager) UpgradeSpecificPackage(pkgID string) error {
 	}
 
 	// Call InstallRelease() in install.go to install the latest version of the package
-	if err := pm.InstallRelease(pkgID, pendingRelease); err != nil {
+	if err := pm.InstallVersion(pkgID, pendingRelease); err != nil {
 		return fmt.Errorf("failed to install update for %s: %v", pkgID, err)
 	}
 
