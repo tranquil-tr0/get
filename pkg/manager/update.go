@@ -121,6 +121,7 @@ func (pm *PackageManager) UpdatePackageAndReturnNewVersion(pkgID string) (hasNew
 			if updateVersion == "" { // if there is no pending update, (if it is a new update)
 				// We should add the package and its latest version to pending updates
 				hasNewUpdate = true
+				// FIXME: it doesnt do anything
 				if err := pm.WritePackageManagerMetadata(metadata); err != nil {
 					return hasNewUpdate, "", fmt.Errorf("failed to save metadata: %v", err)
 				}

@@ -84,6 +84,7 @@ func (pm *PackageManager) UpgradeSpecificPackage(pkgID string) error {
 		return fmt.Errorf("failed to install update for %s: %v", pkgID, err)
 	}
 
+	// FIXME: fix implementation
 	// Remove the package from pending updates in metadata
 	delete(metadata.PendingUpdates, pkgID)
 	if err := pm.WritePackageManagerMetadata(metadata); err != nil {
