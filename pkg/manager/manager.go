@@ -35,7 +35,6 @@ func NewPackageManager(metadataPath string) *PackageManager {
 	return &PackageManager{
 		MetadataPath: metadataPath,
 		GithubClient: github.NewClient(),
-		Verbose:      false,
 	}
 }
 
@@ -73,10 +72,6 @@ func (pm *PackageManager) WritePackageManagerMetadata(metadata *PackageManagerMe
 	}
 
 	return nil
-}
-
-func (pm *PackageManager) SetVerbose(verbose bool) {
-	pm.Verbose = verbose
 }
 
 // GetPendingUpdates returns the pending updates from the metadata.
