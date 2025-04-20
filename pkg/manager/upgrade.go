@@ -86,7 +86,7 @@ func (pm *PackageManager) UpgradeSpecificPackage(pkgID string) error {
 
 	// Remove the package from pending updates in metadata
 	delete(metadata.PendingUpdates, pkgID)
-	if err := pm.SaveMetadata(metadata); err != nil {
+	if err := pm.WritePackageManagerMetadata(metadata); err != nil {
 		return fmt.Errorf("failed to update metadata after upgrade: %v", err)
 	}
 

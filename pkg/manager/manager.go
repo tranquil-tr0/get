@@ -61,8 +61,8 @@ func (pm *PackageManager) GetPackageManagerMetadata() (*PackageManagerMetadata, 
 	return metadata, nil
 }
 
-// adds metadata to PackageManagerMetadata
-func (pm *PackageManager) SaveMetadata(metadata *PackageManagerMetadata) error {
+// overwrites PackageManagerMetadata
+func (pm *PackageManager) WritePackageManagerMetadata(metadata *PackageManagerMetadata) error {
 	data, err := json.MarshalIndent(metadata, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal metadata: %v", err)

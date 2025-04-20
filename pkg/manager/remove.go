@@ -28,5 +28,5 @@ func (pm *PackageManager) Remove(pkgID string) error {
 	}
 
 	delete(metadata.Packages, pkgID)
-	return pm.SaveMetadata(metadata)
+	return pm.WritePackageManagerMetadata(metadata)
 }

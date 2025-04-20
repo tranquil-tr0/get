@@ -1,6 +1,6 @@
 /*
  * TODO: if more than one deb package do interactive prompt, best implemented in Install()
-*/
+ */
 package manager
 
 import (
@@ -28,6 +28,7 @@ func (pm *PackageManager) InstallRelease(pkgID string, release *github.Release) 
 	}
 	defer resp.Body.Close()
 
+	// FIXME: use system tempdir, not weird workaround
 	// Create temp directory
 	tempDir, tempErr := os.MkdirTemp("", "get-*")
 	if tempErr != nil {
@@ -81,6 +82,7 @@ func (pm *PackageManager) InstallRelease(pkgID string, release *github.Release) 
 		return fmt.Errorf("installation failed: %v", waitErr)
 	}
 
+	// FIXME: use system tempdir, not weird workaround
 	os.RemoveAll(tempDir)
 	// Extract apt package name
 	outputStr := outputBuilder.String()
@@ -100,6 +102,7 @@ func (pm *PackageManager) InstallRelease(pkgID string, release *github.Release) 
 		return fmt.Errorf("failed to find package name in apt output")
 	}
 
+	// FIXME: all below code is bad. the metadata entirely overwrites any existing packages records.
 	// Update metadata
 	metadata, metaErr := pm.GetPackageManagerMetadata()
 	if metaErr != nil {
@@ -112,7 +115,7 @@ func (pm *PackageManager) InstallRelease(pkgID string, release *github.Release) 
 		owner, repo = parts[0], parts[1]
 		// handle the owner and repo here
 	} else {
-		return fmt.Errorf("failed to find owner and repo from pkgID")// Handle the case where the split does not produce two parts
+		return fmt.Errorf("failed to find owner and repo from pkgID") // Handle the case where the split does not produce two parts
 	}
 
 	metadata.Packages[pkgID] = PackageMetadata{
@@ -123,7 +126,7 @@ func (pm *PackageManager) InstallRelease(pkgID string, release *github.Release) 
 		AptName:     aptPackageName,
 	}
 
-	return pm.SaveMetadata(metadata)
+	return pm.WritePackageManagerMetadata(metadata)
 }
 
 // Install does InstallRelease, but an additional version and already installed sanity check
@@ -160,7 +163,7 @@ func (pm *PackageManager) InstallVersion(pkgID string, version string) error {
 	// get the Release
 	release, err := pm.GithubClient.GetReleaseByTag(pkgID, version)
 	if err != nil {
-	return fmt.Errorf("error fetching latest release: %s", err)
+		return fmt.Errorf("error fetching latest release: %s", err)
 	}
 	// install the package with a call to InstallRelease, and returns error
 	return pm.InstallRelease(pkgID, release)

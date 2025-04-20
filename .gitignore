@@ -29,5 +29,5 @@ go.work
 *.swp
 *.swo
 
-# Local metadata storage
-.get-metadata.json
+# NOT THIS PROJECT
+cli package documentation/

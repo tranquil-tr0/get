@@ -36,7 +36,7 @@ func main() {
 		Authors: []*cli.Author{
 			{
 				Name:  "tranquil-tr0",
-				Email: "tranquil-tr0@github.com",
+				Email: "tranquiltr0@proton.me",
 			},
 		},
 		Commands: []*cli.Command{
