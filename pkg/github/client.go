@@ -75,7 +75,7 @@ func (r *Release) FindDebPackage() *Asset {
 	return nil
 }
 
-func (c *Client) GetLatestVersionNumber(pkgID string) (string, error) {
+func (c *Client) GetLatestVersionName(pkgID string) (string, error) {
 	release, err := c.GetLatestRelease(pkgID)
 	if err != nil {
 		return "", fmt.Errorf("failed to get latest release: %v", err)

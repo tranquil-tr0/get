@@ -1,6 +1,6 @@
 /*
-  TODO: refactor PackageMetadata to save pkgID instead of owner, repo
- */
+TODO: refactor PackageMetadata to save pkgID instead of owner, repo
+*/
 package manager
 
 import (
@@ -12,9 +12,9 @@ import (
 )
 
 type PackageManager struct {
-	MetadataPath   string
-	GithubClient   *github.Client
-	Verbose        bool
+	MetadataPath string
+	GithubClient *github.Client
+	Verbose      bool
 }
 
 type PackageMetadata struct {
@@ -26,16 +26,16 @@ type PackageMetadata struct {
 }
 
 type PackageManagerMetadata struct {
-	Packages       map[string]PackageMetadata `json:"packages"` // map[pkgID] = PackageMetadata of the package
-	PendingUpdates map[string]string `json:"pending_updates"` // map[pkgID] = latest_version
+	Packages       map[string]PackageMetadata `json:"packages"`        // map[pkgID] = PackageMetadata of the package
+	PendingUpdates map[string]string          `json:"pending_updates"` // map[pkgID] = latest_version
 }
 
 // Returns a new PackageManager struct that stores metadata at the path
 func NewPackageManager(metadataPath string) *PackageManager {
 	return &PackageManager{
-		MetadataPath:   metadataPath,
-		GithubClient:   github.NewClient(),
-		Verbose:        false,
+		MetadataPath: metadataPath,
+		GithubClient: github.NewClient(),
+		Verbose:      false,
 	}
 }
 
@@ -61,7 +61,7 @@ func (pm *PackageManager) GetPackageManagerMetadata() (*PackageManagerMetadata, 
 	return metadata, nil
 }
 
-//adds metadata to PackageManagerMetadata
+// adds metadata to PackageManagerMetadata
 func (pm *PackageManager) SaveMetadata(metadata *PackageManagerMetadata) error {
 	data, err := json.MarshalIndent(metadata, "", "  ")
 	if err != nil {
@@ -96,7 +96,8 @@ func (pm *PackageManager) GetAllPendingUpdates() (map[string]string, error) {
 	return metadata.PendingUpdates, nil
 }
 
-// returns the version with a pending update of the package
+// returns the version of the pending update of the package-
+//
 // if version="", the pkgID does NOT have a version or does not exist
 func (pm *PackageManager) GetPendingUpdate(pkgID string) (version string, err error) {
 	//check if pkg has a pending update, cannot do if no
