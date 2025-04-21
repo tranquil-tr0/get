@@ -51,6 +51,7 @@ func (pm *PackageManager) InstallRelease(pkgID string, release *github.Release) 
 
 	// Install with apt
 	fmt.Println("Installing with apt...")
+	// TODO: use -p in sudo for custom prompt
 	cmd := exec.Command("sudo", "apt", "install", "-y", packagePath)
 	cmdReader, pipeErr := cmd.StdoutPipe()
 	if pipeErr != nil {
