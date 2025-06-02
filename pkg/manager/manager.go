@@ -1,6 +1,3 @@
-/*
-TODO: refactor PackageMetadata to save pkgID instead of owner, repo
-*/
 package manager
 
 import (
@@ -18,8 +15,6 @@ type PackageManager struct {
 }
 
 type PackageMetadata struct {
-	Owner       string `json:"owner"`
-	Repo        string `json:"repo"`
 	Version     string `json:"version"`
 	InstalledAt string `json:"installed_at"`
 	AptName     string `json:"apt_name"`
@@ -30,7 +25,7 @@ type PackageManagerMetadata struct {
 	PendingUpdates map[string]string          `json:"pending_updates"` // map[pkgID] = latest_version
 }
 
-// Returns a new PackageManager struct that stores metadata at the path
+// NewPackageManager returns a new PackageManager struct that stores metadata at the specified path
 func NewPackageManager(metadataPath string) *PackageManager {
 	return &PackageManager{
 		MetadataPath: metadataPath,
@@ -60,7 +55,7 @@ func (pm *PackageManager) GetPackageManagerMetadata() (*PackageManagerMetadata, 
 	return metadata, nil
 }
 
-// overwrites PackageManagerMetadata
+// WritePackageManagerMetadata overwrites PackageManagerMetadata
 func (pm *PackageManager) WritePackageManagerMetadata(metadata *PackageManagerMetadata) error {
 	data, err := json.MarshalIndent(metadata, "", "  ")
 	if err != nil {
@@ -91,23 +86,21 @@ func (pm *PackageManager) GetAllPendingUpdates() (map[string]string, error) {
 	return metadata.PendingUpdates, nil
 }
 
-// returns the version of the pending update of the package-
-//
-// if version="", the pkgID does NOT have a version or does not exist
+// GetPendingUpdate returns the version of the pending update for the package.
+// If version="", the pkgID does NOT have a version or does not exist.
 func (pm *PackageManager) GetPendingUpdate(pkgID string) (version string, err error) {
-	//check if pkg has a pending update, cannot do if no
+	// Check if pkg has a pending update
 	metadata, err := pm.GetPackageManagerMetadata()
 	if err != nil {
 		return "", fmt.Errorf("error loading metadata: %v", err)
 	}
 	version, exists := metadata.PendingUpdates[pkgID]
 	if !exists {
-		// package does NOT have a pending update, but no error
+		// Package does NOT have a pending update, but no error
 		return "", nil
-	} else {
-		// return version
-		return version, nil
 	}
+	// Return version
+	return version, nil
 }
 
 // GetPackage retrieves a package by its ID from the metadata.
