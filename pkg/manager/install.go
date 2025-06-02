@@ -110,18 +110,12 @@ func (pm *PackageManager) InstallRelease(pkgID string, release *github.Release) 
 		return metaErr
 	}
 
-	var owner, repo string
 	parts := strings.Split(pkgID, "/")
-	if len(parts) >= 2 {
-		owner, repo = parts[0], parts[1]
-		// handle the owner and repo here
-	} else {
-		return fmt.Errorf("failed to find owner and repo from pkgID") // Handle the case where the split does not produce two parts
+	if len(parts) < 2 {
+		return fmt.Errorf("failed to find owner and repo from pkgID: %s", pkgID)
 	}
 
 	metadata.Packages[pkgID] = PackageMetadata{
-		Owner:       owner,
-		Repo:        repo,
 		Version:     release.TagName,
 		InstalledAt: release.PublishedAt,
 		AptName:     aptPackageName,

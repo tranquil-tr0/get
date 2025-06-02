@@ -1,6 +1,8 @@
 package manager
 
 import (
+	"strings"
+
 	"github.com/tranquil-tr0/get/pkg/output"
 )
 
@@ -18,8 +20,15 @@ func (pm *PackageManager) PrintInstalledPackages() error {
 		output.PrintTitle("----------------------------------")
 	}
 
-	for _, pkg := range metadata.Packages {
-		output.PrintNormal(" %s/%s (Version: %s, Installed: %s)", output.Bold(pkg.Owner), output.Bold(pkg.Repo), pkg.Version, pkg.InstalledAt)
+	for pkgID, pkg := range metadata.Packages {
+		parts := strings.Split(pkgID, "/")
+		var owner, repo string
+		if len(parts) >= 2 {
+			owner, repo = parts[0], parts[1]
+		} else {
+			owner, repo = pkgID, ""
+		}
+		output.PrintNormal(" %s/%s (Version: %s, Installed: %s)", output.Bold(owner), output.Bold(repo), pkg.Version, pkg.InstalledAt)
 		if pkg.AptName != "" {
 			output.PrintGreen("   └APT Package Name: %s", pkg.AptName)
 		}
