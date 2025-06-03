@@ -61,12 +61,6 @@ func (pm *PackageManager) UpgradeSpecificPackage(pkgID string) error {
 			2. remove the package from pending updates in metadata
 	*/
 
-	// Load metadata to check for pending updates
-	metadata, err := pm.GetPackageManagerMetadata()
-	if err != nil {
-		return fmt.Errorf("failed to load metadata: %v", err)
-	}
-
 	// get the pending update version
 	pendingRelease, err := pm.GetPendingUpdate(pkgID)
 	if err != nil {
@@ -79,17 +73,13 @@ func (pm *PackageManager) UpgradeSpecificPackage(pkgID string) error {
 		return fmt.Errorf("invalid package ID format: %s", pkgID)
 	}
 
-	// Call InstallRelease() in install.go to install the latest version of the package
+	// Call InstallVersion() to install the specified version of the package
+	// Note: InstallVersion calls InstallRelease which already removes the package from pending updates
 	if err := pm.InstallVersion(pkgID, pendingRelease); err != nil {
 		return fmt.Errorf("failed to install update for %s: %v", pkgID, err)
 	}
 
-	// FIXME: fix implementation
-	// Remove the package from pending updates in metadata
-	delete(metadata.PendingUpdates, pkgID)
-	if err := pm.WritePackageManagerMetadata(metadata); err != nil {
-		return fmt.Errorf("failed to update metadata after upgrade: %v", err)
-	}
+	// No need to manually remove from pending updates since InstallRelease already handles this
 
 	return nil
 }
