@@ -30,14 +30,18 @@ func main() {
 		Name:    "get",
 		Version: "v0.1.0",
 		Usage:   "A package manager for GitHub releases",
-		Before: func(c *cli.Context) error {
-			return nil
-		},
-		Authors: []*cli.Author{
-			{
-				Name:  "tranquil-tr0",
-				Email: "tranquiltr0@proton.me",
+		Flags: []cli.Flag{
+			&cli.BoolFlag{
+				Name:  "verbose",
+				Usage: "Enable verbose output",
 			},
+		},
+		Before: func(c *cli.Context) error {
+			// Set global verbose state based on global or command flags
+			if c.Bool("verbose") {
+				output.SetVerbose(true)
+			}
+			return nil
 		},
 		Commands: []*cli.Command{
 			{
@@ -52,26 +56,33 @@ func main() {
 						Aliases: []string{"r"},
 						Usage:   "Specify a release version to install",
 					},
-					&cli.BoolFlag{
-						Name:    "verbose",
-						Aliases: []string{"v"},
-						Usage:   "Enable verbose output",
-					},
 				},
 				Action: func(c *cli.Context) error {
+					// Set verbose state from command flag
+					if c.Bool("verbose") {
+						output.SetVerbose(true)
+						pm.Verbose = true
+					}
+
 					if c.NArg() != 1 {
-						return fmt.Errorf("Please provide a GitHub repository URL")
+						return fmt.Errorf("please provide a GitHub repository URL")
 					}
 
 					repoURL := c.Args().First()
+					output.PrintVerboseStart("Parsing repository URL", repoURL)
 					pkgID, err := tools.ParseRepoURL(repoURL)
 					if err != nil {
+						output.PrintVerboseError("Parse repository URL", err)
 						return fmt.Errorf("failed to parse repository URL: %v", err)
 					}
+					output.PrintVerboseComplete("Parse repository URL", pkgID)
 
+					output.PrintVerboseStart("Installing package", pkgID)
 					if err := pm.Install(pkgID, c.String("release")); err != nil {
-						return fmt.Errorf("Error installing package: %v", err)
+						output.PrintVerboseError("Install package", err)
+						return fmt.Errorf("error installing package: %v", err)
 					}
+					output.PrintVerboseComplete("Install package", pkgID)
 					output.PrintSuccess("Successfully installed %s", pkgID)
 					return nil
 				},
@@ -83,17 +94,24 @@ func main() {
 				Description: "Display a list of all packages installed through get.",
 				Flags: []cli.Flag{
 					&cli.BoolFlag{
-						Name:    "verbose",
-						Aliases: []string{"v"},
-						Usage:   "Enable verbose output",
+						Name:  "verbose",
+						Usage: "Enable verbose output",
 					},
 				},
 				Action: func(c *cli.Context) error {
-					// Remove the unused variable declaration
+					// Set verbose state from command flag
+					if c.Bool("verbose") {
+						output.SetVerbose(true)
+						pm.Verbose = true
+					}
+
+					output.PrintVerboseStart("Loading installed packages")
 					err := pm.PrintInstalledPackages()
 					if err != nil {
-						return fmt.Errorf("Error listing packages: %v", err)
+						output.PrintVerboseError("Load installed packages", err)
+						return fmt.Errorf("error listing packages: %v", err)
 					}
+					output.PrintVerboseComplete("Load installed packages")
 					return nil
 				},
 			},
@@ -105,25 +123,36 @@ func main() {
 				ArgsUsage:   "<github-repo-url>",
 				Flags: []cli.Flag{
 					&cli.BoolFlag{
-						Name:    "verbose",
-						Aliases: []string{"v"},
-						Usage:   "Enable verbose output",
+						Name:  "verbose",
+						Usage: "Enable verbose output",
 					},
 				},
 				Action: func(c *cli.Context) error {
+					// Set verbose state from command flag
+					if c.Bool("verbose") {
+						output.SetVerbose(true)
+						pm.Verbose = true
+					}
+
 					if c.NArg() != 1 {
-						return fmt.Errorf("Please provide a GitHub repository URL")
+						return fmt.Errorf("please provide a GitHub repository URL")
 					}
 
 					repoURL := c.Args().First()
+					output.PrintVerboseStart("Parsing repository URL", repoURL)
 					pkgID, err := tools.ParseRepoURL(repoURL)
 					if err != nil {
+						output.PrintVerboseError("Parse repository URL", err)
 						return fmt.Errorf("failed to parse repository URL: %v", err)
 					}
+					output.PrintVerboseComplete("Parse repository URL", pkgID)
 
+					output.PrintVerboseStart("Removing package", pkgID)
 					if err := pm.Remove(pkgID); err != nil {
-						return fmt.Errorf("Error removing package: %v", err)
+						output.PrintVerboseError("Remove package", err)
+						return fmt.Errorf("error removing package: %v", err)
 					}
+					output.PrintVerboseComplete("Remove package", pkgID)
 					output.PrintSuccess("Successfully removed %s", pkgID)
 					return nil
 				},
@@ -135,16 +164,24 @@ func main() {
 				Description: "Check for available updates of installed packages",
 				Flags: []cli.Flag{
 					&cli.BoolFlag{
-						Name:    "verbose",
-						Aliases: []string{"v"},
-						Usage:   "Enable verbose output",
+						Name:  "verbose",
+						Usage: "Enable verbose output",
 					},
 				},
 				Action: func(c *cli.Context) error {
-					output.PrintAction("Checking for updates...")
-					if err := pm.UpdateAllPackages(); err != nil {
-						return fmt.Errorf("Error checking for updates: %v", err)
+					// Set verbose state from command flag
+					if c.Bool("verbose") {
+						output.SetVerbose(true)
+						pm.Verbose = true
 					}
+
+					output.PrintAction("Checking for updates...")
+					output.PrintVerboseStart("Checking for package updates")
+					if err := pm.UpdateAllPackages(); err != nil {
+						output.PrintVerboseError("Check for updates", err)
+						return fmt.Errorf("error checking for updates: %v", err)
+					}
+					output.PrintVerboseComplete("Check for package updates")
 					return nil
 				},
 			},
@@ -155,16 +192,24 @@ func main() {
 				Description: "Install available updates for packages",
 				Flags: []cli.Flag{
 					&cli.BoolFlag{
-						Name:    "verbose",
-						Aliases: []string{"v"},
-						Usage:   "Enable verbose output",
+						Name:  "verbose",
+						Usage: "Enable verbose output",
 					},
 				},
 				Action: func(c *cli.Context) error {
-					output.PrintAction("Upgrading packages...")
-					if err := pm.UpgradeAllPackages(); err != nil {
-						return fmt.Errorf("Error upgrading packages: %v", err)
+					// Set verbose state from command flag
+					if c.Bool("verbose") {
+						output.SetVerbose(true)
+						pm.Verbose = true
 					}
+
+					output.PrintAction("Upgrading packages...")
+					output.PrintVerboseStart("Upgrading packages")
+					if err := pm.UpgradeAllPackages(); err != nil {
+						output.PrintVerboseError("Upgrade packages", err)
+						return fmt.Errorf("error upgrading packages: %v", err)
+					}
+					output.PrintVerboseComplete("Upgrade packages")
 					output.PrintSuccess("Successfully applied all available updates")
 					return nil
 				},
@@ -172,26 +217,37 @@ func main() {
 			{
 				Name:        "update-upgrade",
 				Category:    "Package Management",
-				Aliases:     []string{"uu", "up"},
+				Aliases:     []string{"up"},
 				Usage:       "Upgrade outdated packages",
 				Description: "Check for updates then upgrade outdated packages",
 				Flags: []cli.Flag{
 					&cli.BoolFlag{
-						Name:    "verbose",
-						Aliases: []string{"v"},
-						Usage:   "Enable verbose output",
+						Name:  "verbose",
+						Usage: "Enable verbose output",
 					},
 				},
 				Action: func(c *cli.Context) error {
-					output.PrintAction("Checking for updates...")
-					if err := pm.UpdateAllPackages(); err != nil {
-						return fmt.Errorf("Error checking for updates: %v", err)
+					// Set verbose state from command flag
+					if c.Bool("verbose") {
+						output.SetVerbose(true)
+						pm.Verbose = true
 					}
 
-					output.PrintAction("Applying updates...")
-					if err := pm.UpgradeAllPackages(); err != nil {
-						return fmt.Errorf("Error upgrading packages: %v", err)
+					output.PrintAction("Checking for updates...")
+					output.PrintVerboseStart("Checking for package updates")
+					if err := pm.UpdateAllPackages(); err != nil {
+						output.PrintVerboseError("Check for updates", err)
+						return fmt.Errorf("error checking for updates: %v", err)
 					}
+					output.PrintVerboseComplete("Check for package updates")
+
+					output.PrintAction("Applying updates...")
+					output.PrintVerboseStart("Upgrading packages")
+					if err := pm.UpgradeAllPackages(); err != nil {
+						output.PrintVerboseError("Upgrade packages", err)
+						return fmt.Errorf("error upgrading packages: %v", err)
+					}
+					output.PrintVerboseComplete("Upgrade packages")
 
 					output.PrintSuccess("Successfully applied all available updates")
 					return nil
