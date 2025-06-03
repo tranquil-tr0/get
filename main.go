@@ -9,9 +9,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/tranquil-tr0/get/pkg/manager"
-	"github.com/tranquil-tr0/get/pkg/output"
-	"github.com/tranquil-tr0/get/pkg/tools"
+	"github.com/tranquil-tr0/get/internal/manager"
+	"github.com/tranquil-tr0/get/internal/output"
+	"github.com/tranquil-tr0/get/internal/tools"
 
 	"github.com/urfave/cli/v2"
 )

@@ -3,7 +3,7 @@ package manager
 import (
 	"strings"
 
-	"github.com/tranquil-tr0/get/pkg/output"
+	"github.com/tranquil-tr0/get/internal/output"
 )
 
 func (pm *PackageManager) PrintInstalledPackages() error {

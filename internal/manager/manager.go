@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/tranquil-tr0/get/pkg/github"
+	"github.com/tranquil-tr0/get/internal/github"
 )
 
 type PackageManager struct {

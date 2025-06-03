@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/tranquil-tr0/get/pkg/output"
+	"github.com/tranquil-tr0/get/internal/output"
 )
 
 func (pm *PackageManager) UpgradeAllPackages() error {
@@ -70,7 +70,7 @@ func (pm *PackageManager) UpgradeSpecificPackage(pkgID string) error {
 	// get the pending update version
 	pendingRelease, err := pm.GetPendingUpdate(pkgID)
 	if err != nil {
-		return fmt.Errorf("failed checking for pending updates %s", err)
+		return fmt.Errorf("failed checking for pending updates: %s", err)
 	}
 
 	// Parse owner and repo from pkgID (format: owner/repo)

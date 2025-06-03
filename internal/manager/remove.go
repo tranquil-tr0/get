@@ -27,7 +27,8 @@ func (pm *PackageManager) Remove(pkgID string) error {
 		return fmt.Errorf("failed to remove package: %v\nOutput: %s", cmdErr, cmdOutput)
 	}
 
-	// FIXME: bad implementation
+	// Remove from both packages and pending updates
 	delete(metadata.Packages, pkgID)
+	delete(metadata.PendingUpdates, pkgID)
 	return pm.WritePackageManagerMetadata(metadata)
 }

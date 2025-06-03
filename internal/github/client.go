@@ -81,11 +81,15 @@ func (c *Client) GetLatestVersionName(pkgID string) (string, error) {
 		return "", fmt.Errorf("failed to get latest release: %v", err)
 	}
 
-	// Extract version number from tag name (remove 'v' prefix if present)
-	version := strings.TrimPrefix(release.TagName, "v")
+	// Normalize version by removing all non-numeric characters from the beginning and end
+	// This matches the normalization done in parseVersionToInt()
+	version := strings.TrimFunc(release.TagName, func(r rune) bool {
+		return r != '.' && (r < '0' || r > '9')
+	})
 
-	// Validate version format (semver-like)
-	matched, err := regexp.MatchString(`^\d+\.\d+\.\d+$`, version)
+	// More flexible validation for semantic versioning including pre-release and build metadata
+	// Accepts formats like: 1.2.3, 1.2.3-alpha, 1.2.3-alpha.1, 1.2.3+build
+	matched, err := regexp.MatchString(`^\d+(\.\d+)*(-[a-zA-Z0-9]+(\.[a-zA-Z0-9]+)*)?(\+[a-zA-Z0-9]+(\.[a-zA-Z0-9]+)*)?$`, version)
 	if !matched || err != nil {
 		return "", fmt.Errorf("invalid version format in tag: %s read as %s", release.TagName, version)
 	}

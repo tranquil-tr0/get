@@ -12,7 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/tranquil-tr0/get/pkg/github"
+	"github.com/tranquil-tr0/get/internal/github"
 )
 
 func (pm *PackageManager) InstallRelease(pkgID string, release *github.Release) error {
@@ -51,8 +51,7 @@ func (pm *PackageManager) InstallRelease(pkgID string, release *github.Release) 
 
 	// Install with apt
 	fmt.Println("Installing with apt...")
-	// TODO: use -p in sudo for custom prompt
-	cmd := exec.Command("sudo", "apt", "install", "-y", packagePath)
+	cmd := exec.Command("sudo", "-p", "[get] Password required for package installation: ", "apt", "install", "-y", packagePath)
 	cmdReader, pipeErr := cmd.StdoutPipe()
 	if pipeErr != nil {
 		return fmt.Errorf("failed to create output pipe: %v", pipeErr)
@@ -83,8 +82,6 @@ func (pm *PackageManager) InstallRelease(pkgID string, release *github.Release) 
 		return fmt.Errorf("installation failed: %v", waitErr)
 	}
 
-	// FIXME: use system tempdir, not weird workaround
-	os.RemoveAll(tempDir)
 	// Extract apt package name
 	outputStr := outputBuilder.String()
 	lines := strings.Split(outputStr, "\n")
@@ -103,8 +100,7 @@ func (pm *PackageManager) InstallRelease(pkgID string, release *github.Release) 
 		return fmt.Errorf("failed to find package name in apt output")
 	}
 
-	// FIXME: all below code is bad. the metadata entirely overwrites any existing packages records.
-	// Update metadata
+	// Update metadata - reload to avoid overwriting other changes
 	metadata, metaErr := pm.GetPackageManagerMetadata()
 	if metaErr != nil {
 		return metaErr
@@ -116,10 +112,13 @@ func (pm *PackageManager) InstallRelease(pkgID string, release *github.Release) 
 	}
 
 	metadata.Packages[pkgID] = PackageMetadata{
-		Version:     release.TagName,
+		Version:     strings.TrimPrefix(release.TagName, "v"), // Normalize version
 		InstalledAt: release.PublishedAt,
 		AptName:     aptPackageName,
 	}
+
+	// Remove from pending updates if it exists
+	delete(metadata.PendingUpdates, pkgID)
 
 	return pm.WritePackageManagerMetadata(metadata)
 }

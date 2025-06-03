@@ -4,9 +4,8 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"unicode"
 
-	"github.com/tranquil-tr0/get/pkg/output"
+	"github.com/tranquil-tr0/get/internal/output"
 )
 
 func (pm *PackageManager) UpdateAllPackages() error {
@@ -25,8 +24,10 @@ func (pm *PackageManager) UpdateAllPackages() error {
 		return fmt.Errorf("failed to load metadata: %v", err)
 	}
 
-	// Track if we found any updates
+	// Track if we found any updates and error count
 	updatesFound := false
+	errorCount := 0
+	var failedPackages []string
 
 	// Loop through each installed package
 	for pkgID, pkg := range metadata.Packages {
@@ -35,6 +36,8 @@ func (pm *PackageManager) UpdateAllPackages() error {
 		// Print error if any
 		if updateErr != nil {
 			output.PrintError("Error checking for updates for %s: %v", pkgID, updateErr)
+			errorCount++
+			failedPackages = append(failedPackages, pkgID)
 			continue
 		}
 
@@ -47,6 +50,11 @@ func (pm *PackageManager) UpdateAllPackages() error {
 
 	if !updatesFound {
 		output.PrintYellow("No updates available.")
+	}
+
+	// Provide error summary if there were failures
+	if errorCount > 0 {
+		return fmt.Errorf("failed to check updates for %d package(s): %v", errorCount, failedPackages)
 	}
 
 	return nil
@@ -119,9 +127,10 @@ func (pm *PackageManager) UpdatePackageAndReturnNewVersion(pkgID string) (hasNew
 				return hasNewUpdate, latestVersionString, fmt.Errorf("error checking for existing updates: %s", err)
 			}
 			if updateVersion == "" { // if there is no pending update, (if it is a new update)
-				// We should add the package and its latest version to pending updates
 				hasNewUpdate = true
-				// FIXME: it doesnt do anything
+				// Add the pending update to metadata
+				metadata.PendingUpdates[pkgID] = latestVersionString
+				// Actually save the metadata
 				if err := pm.WritePackageManagerMetadata(metadata); err != nil {
 					return hasNewUpdate, "", fmt.Errorf("failed to save metadata: %v", err)
 				}
@@ -137,10 +146,16 @@ func (pm *PackageManager) UpdatePackageAndReturnNewVersion(pkgID string) (hasNew
 
 // Helper function to parse version string to integer for comparison
 func parseVersionToInt(version string) (int, error) {
-	// Trim leading/trailing non-numeric characters
+	// Normalize version by removing all non-numeric characters from the beginning and end
+	// This matches the normalization done in GetLatestVersionName()
 	version = strings.TrimFunc(version, func(r rune) bool {
-		return !unicode.IsDigit(r)
+		return r != '.' && (r < '0' || r > '9')
 	})
+
+	// Remove pre-release and build metadata for comparison (everything after - or +)
+	if idx := strings.IndexAny(version, "-+"); idx != -1 {
+		version = version[:idx]
+	}
 
 	// Split into major.minor.patch components
 	parts := strings.Split(version, ".")
@@ -155,9 +170,12 @@ func parseVersionToInt(version string) (int, error) {
 		if i >= 3 { // Only consider major.minor.patch
 			break
 		}
+		if part == "" {
+			continue // Skip empty parts
+		}
 		num, err := strconv.Atoi(part)
 		if err != nil {
-			return 0, fmt.Errorf("failed to parse version component: %v", err)
+			return 0, fmt.Errorf("failed to parse version component '%s': %v", part, err)
 		}
 		switch i {
 		case 0: // major
