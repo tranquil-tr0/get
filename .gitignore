@@ -29,5 +29,5 @@ go.work
 *.swp
 *.swo
 
-# NOT THIS PROJECT
-cli package documentation/
+
+.*/
