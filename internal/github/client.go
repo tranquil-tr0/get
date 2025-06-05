@@ -1,16 +1,19 @@
 package github
 
 import (
-	"encoding/json"
+	"context"
 	"fmt"
-	"io"
-	"net/http"
+	"os"
 	"regexp"
 	"strings"
+	"time"
+
+	"github.com/google/go-github/v66/github"
 )
 
 type Client struct {
-	HttpClient *http.Client
+	client *github.Client
+	ctx    context.Context
 }
 
 type Release struct {
@@ -26,8 +29,19 @@ type Asset struct {
 }
 
 func NewClient() *Client {
+	ctx := context.Background()
+
+	// Create a new GitHub client
+	client := github.NewClient(nil)
+
+	// Check for GitHub token in environment variable
+	if token := os.Getenv("GITHUB_TOKEN"); token != "" {
+		client = client.WithAuthToken(token)
+	}
+
 	return &Client{
-		HttpClient: &http.Client{},
+		client: client,
+		ctx:    ctx,
 	}
 }
 
@@ -36,34 +50,45 @@ func (c *Client) GetLatestRelease(pkgID string) (*Release, error) {
 }
 
 func (c *Client) GetReleaseByTag(pkgID, tag string) (*Release, error) {
-	var url string
+	// Parse owner and repo from pkgID (format: owner/repo)
+	parts := strings.Split(pkgID, "/")
+	if len(parts) != 2 {
+		return nil, fmt.Errorf("invalid package ID format: %s (expected owner/repo)", pkgID)
+	}
+	owner, repo := parts[0], parts[1]
+
+	var githubRelease *github.RepositoryRelease
+	var err error
+
 	if tag == "latest" {
-		url = fmt.Sprintf("https://api.github.com/repos/%s/releases/latest", pkgID)
+		// Get the latest release
+		githubRelease, _, err = c.client.Repositories.GetLatestRelease(c.ctx, owner, repo)
 	} else {
-		url = fmt.Sprintf("https://api.github.com/repos/%s/releases/tags/%s", pkgID, tag)
+		// Get release by tag
+		githubRelease, _, err = c.client.Repositories.GetReleaseByTag(c.ctx, owner, repo, tag)
 	}
 
-	resp, err := c.HttpClient.Get(url)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch release: %v", err)
 	}
-	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("GitHub API returned status %d", resp.StatusCode)
+	// Convert go-github release to our Release struct
+	release := &Release{
+		TagName:     githubRelease.GetTagName(),
+		Name:        githubRelease.GetName(),
+		PublishedAt: githubRelease.GetPublishedAt().Format(time.RFC3339),
+		Assets:      make([]Asset, len(githubRelease.Assets)),
 	}
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response body: %v", err)
+	// Convert assets
+	for i, asset := range githubRelease.Assets {
+		release.Assets[i] = Asset{
+			Name:               asset.GetName(),
+			BrowserDownloadURL: asset.GetBrowserDownloadURL(),
+		}
 	}
 
-	var release Release
-	if err := json.Unmarshal(body, &release); err != nil {
-		return nil, fmt.Errorf("failed to parse release data: %v", err)
-	}
-
-	return &release, nil
+	return release, nil
 }
 
 func (r *Release) FindDebPackage() *Asset {
