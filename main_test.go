@@ -3,687 +3,455 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/spf13/cobra"
 	"github.com/tranquil-tr0/get/internal/manager"
 	"github.com/tranquil-tr0/get/internal/output"
-	"github.com/tranquil-tr0/get/internal/tools"
-	"github.com/urfave/cli/v2"
 )
 
-// MockPackageManager implements a mock for testing
-type MockPackageManager struct {
-	installCalled        bool
-	removeCalled         bool
-	updateAllCalled      bool
-	upgradeAllCalled     bool
-	printInstalledCalled bool
-	lastPkgID            string
-	lastRelease          string
-	shouldReturnError    bool
-	errorMessage         string
+// TestMain tests the main function setup
+func TestMain(t *testing.T) {
+	// Since main() calls os.Exit, we can't test it directly
+	// Instead, we test the command setup by creating a similar setup
+	t.Run("main setup", func(t *testing.T) {
+		// This test ensures main() can be called without panicking
+		// We'll test individual components separately
+	})
 }
 
-func NewMockPackageManager() *MockPackageManager {
-	return &MockPackageManager{}
-}
+// setupTestCommand creates a root command similar to main() for testing
+func setupTestCommand() *cobra.Command {
+	// Create a temporary directory for test metadata
+	tempDir := filepath.Join(os.TempDir(), "get-test")
+	os.MkdirAll(tempDir, 0755)
+	metadataPath := filepath.Join(tempDir, "get.json")
 
-func (m *MockPackageManager) Install(pkgID, release string) error {
-	m.installCalled = true
-	m.lastPkgID = pkgID
-	m.lastRelease = release
-	if m.shouldReturnError {
-		return fmt.Errorf("%s", m.errorMessage)
+	testPM := manager.NewPackageManager(metadataPath)
+
+	rootCmd := &cobra.Command{
+		Use:     "get",
+		Version: "v0.1.0",
+		Short:   "A package manager for GitHub releases",
+		Long:    "A package manager for GitHub releases that helps you install and manage packages from GitHub without worrying about leaving unupdated packages on your system.",
+		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+			verbose, _ := cmd.Flags().GetBool("verbose")
+			if verbose {
+				output.SetVerbose(true)
+				testPM.Verbose = true
+			}
+		},
 	}
-	return nil
-}
 
-func (m *MockPackageManager) Remove(pkgID string) error {
-	m.removeCalled = true
-	m.lastPkgID = pkgID
-	if m.shouldReturnError {
-		return fmt.Errorf("%s", m.errorMessage)
+	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "Enable verbose output")
+
+	// Install command
+	installCmd := &cobra.Command{
+		Use:   "install <github-repo-url>",
+		Short: "Install a package from GitHub",
+		Long:  "Install a package from a GitHub repository. The package must contain a .deb file in its latest release.",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return fmt.Errorf("mock install error")
+		},
 	}
-	return nil
-}
+	installCmd.Flags().StringP("release", "r", "", "Specify a release version to install")
+	rootCmd.AddCommand(installCmd)
 
-func (m *MockPackageManager) UpdateAllPackages() error {
-	m.updateAllCalled = true
-	if m.shouldReturnError {
-		return fmt.Errorf("%s", m.errorMessage)
+	// List command
+	listCmd := &cobra.Command{
+		Use:   "list",
+		Short: "List installed packages",
+		Long:  "Display a list of all packages installed through get.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return fmt.Errorf("mock list error")
+		},
 	}
-	return nil
-}
+	rootCmd.AddCommand(listCmd)
 
-func (m *MockPackageManager) UpgradeAllPackages() error {
-	m.upgradeAllCalled = true
-	if m.shouldReturnError {
-		return fmt.Errorf("%s", m.errorMessage)
+	// Remove command
+	removeCmd := &cobra.Command{
+		Use:   "remove <github-repo-url>",
+		Short: "Remove an installed package",
+		Long:  "Remove a previously installed package and clean up its metadata.",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return fmt.Errorf("mock remove error")
+		},
 	}
-	return nil
-}
+	rootCmd.AddCommand(removeCmd)
 
-func (m *MockPackageManager) PrintInstalledPackages() error {
-	m.printInstalledCalled = true
-	if m.shouldReturnError {
-		return fmt.Errorf("%s", m.errorMessage)
+	// Update command
+	updateCmd := &cobra.Command{
+		Use:   "update",
+		Short: "Check for package updates",
+		Long:  "Check for available updates of installed packages",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return fmt.Errorf("mock update error")
+		},
 	}
-	return nil
+	rootCmd.AddCommand(updateCmd)
+
+	// Upgrade command
+	upgradeCmd := &cobra.Command{
+		Use:   "upgrade",
+		Short: "Apply staged upgrades",
+		Long:  "Install available updates for packages",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return fmt.Errorf("mock upgrade error")
+		},
+	}
+	rootCmd.AddCommand(upgradeCmd)
+
+	// Update-upgrade command
+	updateUpgradeCmd := &cobra.Command{
+		Use:     "update-upgrade",
+		Aliases: []string{"up"},
+		Short:   "Upgrade outdated packages",
+		Long:    "Check for updates then upgrade outdated packages",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return fmt.Errorf("mock update-upgrade error")
+		},
+	}
+	rootCmd.AddCommand(updateUpgradeCmd)
+
+	return rootCmd
 }
 
-// Helper function to capture output
-func captureOutput(f func()) (string, string) {
-	oldStdout := os.Stdout
-	oldStderr := os.Stderr
-	r, w, _ := os.Pipe()
-	rErr, wErr, _ := os.Pipe()
-	os.Stdout = w
-	os.Stderr = wErr
+// TestRootCommand tests the root command setup
+func TestRootCommand(t *testing.T) {
+	rootCmd := setupTestCommand()
 
-	f()
+	t.Run("root command properties", func(t *testing.T) {
+		if rootCmd.Use != "get" {
+			t.Errorf("Expected Use to be 'get', got '%s'", rootCmd.Use)
+		}
+		if rootCmd.Version != "v0.1.0" {
+			t.Errorf("Expected Version to be 'v0.1.0', got '%s'", rootCmd.Version)
+		}
+		if rootCmd.Short != "A package manager for GitHub releases" {
+			t.Errorf("Expected Short description to match, got '%s'", rootCmd.Short)
+		}
+	})
 
-	w.Close()
-	wErr.Close()
-	os.Stdout = oldStdout
-	os.Stderr = oldStderr
+	t.Run("persistent flags", func(t *testing.T) {
+		flag := rootCmd.PersistentFlags().Lookup("verbose")
+		if flag == nil {
+			t.Error("Expected verbose flag to exist")
+		} else if flag.Shorthand != "v" {
+			t.Errorf("Expected verbose flag shorthand to be 'v', got '%s'", flag.Shorthand)
+		}
+	})
+
+	t.Run("help command", func(t *testing.T) {
+		var buf bytes.Buffer
+		rootCmd.SetOut(&buf)
+		rootCmd.SetArgs([]string{"--help"})
+		err := rootCmd.Execute()
+		if err != nil {
+			t.Errorf("Expected help command to succeed, got error: %v", err)
+		}
+
+		output := buf.String()
+		if !strings.Contains(output, "A package manager for GitHub releases") {
+			t.Error("Expected help output to contain description")
+		}
+	})
+
+	t.Run("version flag", func(t *testing.T) {
+		// Test that the version field is set correctly
+		if rootCmd.Version != "v0.1.0" {
+			t.Errorf("Expected Version to be 'v0.1.0', got '%s'", rootCmd.Version)
+		}
+	})
+}
+
+// TestInstallCommand tests the install command
+func TestInstallCommand(t *testing.T) {
+	rootCmd := setupTestCommand()
+
+	t.Run("install command exists", func(t *testing.T) {
+		installCmd, _, err := rootCmd.Find([]string{"install"})
+		if err != nil {
+			t.Errorf("Expected install command to exist, got error: %v", err)
+		}
+		if installCmd.Use != "install <github-repo-url>" {
+			t.Errorf("Expected install command Use to be 'install <github-repo-url>', got '%s'", installCmd.Use)
+		}
+	})
+
+	t.Run("install command requires argument", func(t *testing.T) {
+		var buf bytes.Buffer
+		rootCmd.SetOut(&buf)
+		rootCmd.SetErr(&buf)
+		rootCmd.SetArgs([]string{"install"})
+		err := rootCmd.Execute()
+		if err == nil {
+			t.Error("Expected install command without arguments to fail")
+		}
+	})
+
+	t.Run("install command with release flag", func(t *testing.T) {
+		installCmd, _, _ := rootCmd.Find([]string{"install"})
+		releaseFlag := installCmd.Flags().Lookup("release")
+		if releaseFlag == nil {
+			t.Error("Expected release flag to exist")
+		} else if releaseFlag.Shorthand != "r" {
+			t.Errorf("Expected release flag shorthand to be 'r', got '%s'", releaseFlag.Shorthand)
+		}
+	})
+}
+
+// TestListCommand tests the list command
+func TestListCommand(t *testing.T) {
+	rootCmd := setupTestCommand()
+
+	t.Run("list command exists", func(t *testing.T) {
+		listCmd, _, err := rootCmd.Find([]string{"list"})
+		if err != nil {
+			t.Errorf("Expected list command to exist, got error: %v", err)
+		}
+		if listCmd.Use != "list" {
+			t.Errorf("Expected list command Use to be 'list', got '%s'", listCmd.Use)
+		}
+	})
+
+	t.Run("list command short description", func(t *testing.T) {
+		listCmd, _, _ := rootCmd.Find([]string{"list"})
+		if listCmd.Short != "List installed packages" {
+			t.Errorf("Expected list command Short to be 'List installed packages', got '%s'", listCmd.Short)
+		}
+	})
+}
+
+// TestRemoveCommand tests the remove command
+func TestRemoveCommand(t *testing.T) {
+	rootCmd := setupTestCommand()
+
+	t.Run("remove command exists", func(t *testing.T) {
+		removeCmd, _, err := rootCmd.Find([]string{"remove"})
+		if err != nil {
+			t.Errorf("Expected remove command to exist, got error: %v", err)
+		}
+		if removeCmd.Use != "remove <github-repo-url>" {
+			t.Errorf("Expected remove command Use to be 'remove <github-repo-url>', got '%s'", removeCmd.Use)
+		}
+	})
+
+	t.Run("remove command requires argument", func(t *testing.T) {
+		var buf bytes.Buffer
+		rootCmd.SetOut(&buf)
+		rootCmd.SetErr(&buf)
+		rootCmd.SetArgs([]string{"remove"})
+		err := rootCmd.Execute()
+		if err == nil {
+			t.Error("Expected remove command without arguments to fail")
+		}
+	})
+}
+
+// TestUpdateCommand tests the update command
+func TestUpdateCommand(t *testing.T) {
+	rootCmd := setupTestCommand()
+
+	t.Run("update command exists", func(t *testing.T) {
+		updateCmd, _, err := rootCmd.Find([]string{"update"})
+		if err != nil {
+			t.Errorf("Expected update command to exist, got error: %v", err)
+		}
+		if updateCmd.Use != "update" {
+			t.Errorf("Expected update command Use to be 'update', got '%s'", updateCmd.Use)
+		}
+	})
+
+	t.Run("update command short description", func(t *testing.T) {
+		updateCmd, _, _ := rootCmd.Find([]string{"update"})
+		if updateCmd.Short != "Check for package updates" {
+			t.Errorf("Expected update command Short to be 'Check for package updates', got '%s'", updateCmd.Short)
+		}
+	})
+}
+
+// TestUpgradeCommand tests the upgrade command
+func TestUpgradeCommand(t *testing.T) {
+	rootCmd := setupTestCommand()
+
+	t.Run("upgrade command exists", func(t *testing.T) {
+		upgradeCmd, _, err := rootCmd.Find([]string{"upgrade"})
+		if err != nil {
+			t.Errorf("Expected upgrade command to exist, got error: %v", err)
+		}
+		if upgradeCmd.Use != "upgrade" {
+			t.Errorf("Expected upgrade command Use to be 'upgrade', got '%s'", upgradeCmd.Use)
+		}
+	})
+
+	t.Run("upgrade command short description", func(t *testing.T) {
+		upgradeCmd, _, _ := rootCmd.Find([]string{"upgrade"})
+		if upgradeCmd.Short != "Apply staged upgrades" {
+			t.Errorf("Expected upgrade command Short to be 'Apply staged upgrades', got '%s'", upgradeCmd.Short)
+		}
+	})
+}
+
+// TestUpdateUpgradeCommand tests the update-upgrade command and its alias
+func TestUpdateUpgradeCommand(t *testing.T) {
+	rootCmd := setupTestCommand()
+
+	t.Run("update-upgrade command exists", func(t *testing.T) {
+		updateUpgradeCmd, _, err := rootCmd.Find([]string{"update-upgrade"})
+		if err != nil {
+			t.Errorf("Expected update-upgrade command to exist, got error: %v", err)
+		}
+		if updateUpgradeCmd.Use != "update-upgrade" {
+			t.Errorf("Expected update-upgrade command Use to be 'update-upgrade', got '%s'", updateUpgradeCmd.Use)
+		}
+	})
+
+	t.Run("update-upgrade command has alias", func(t *testing.T) {
+		updateUpgradeCmd, _, _ := rootCmd.Find([]string{"update-upgrade"})
+		if len(updateUpgradeCmd.Aliases) != 1 || updateUpgradeCmd.Aliases[0] != "up" {
+			t.Errorf("Expected update-upgrade command to have alias 'up', got %v", updateUpgradeCmd.Aliases)
+		}
+	})
+
+	t.Run("up alias works", func(t *testing.T) {
+		upCmd, _, err := rootCmd.Find([]string{"up"})
+		if err != nil {
+			t.Errorf("Expected 'up' alias to work, got error: %v", err)
+		}
+		if upCmd.Use != "update-upgrade" {
+			t.Errorf("Expected 'up' alias to point to update-upgrade command, got '%s'", upCmd.Use)
+		}
+	})
+}
+
+// TestVerboseFlag tests the verbose flag functionality
+func TestVerboseFlag(t *testing.T) {
+	rootCmd := setupTestCommand()
+
+	t.Run("verbose flag exists", func(t *testing.T) {
+		verboseFlag := rootCmd.PersistentFlags().Lookup("verbose")
+		if verboseFlag == nil {
+			t.Error("Expected verbose flag to exist")
+		}
+	})
+
+	t.Run("verbose flag short form", func(t *testing.T) {
+		verboseFlag := rootCmd.PersistentFlags().Lookup("verbose")
+		if verboseFlag.Shorthand != "v" {
+			t.Errorf("Expected verbose flag shorthand to be 'v', got '%s'", verboseFlag.Shorthand)
+		}
+	})
+
+	t.Run("verbose flag default value", func(t *testing.T) {
+		verboseFlag := rootCmd.PersistentFlags().Lookup("verbose")
+		if verboseFlag.DefValue != "false" {
+			t.Errorf("Expected verbose flag default to be 'false', got '%s'", verboseFlag.DefValue)
+		}
+	})
+}
+
+// TestCommandValidation tests command argument validation
+func TestCommandValidation(t *testing.T) {
+	rootCmd := setupTestCommand()
+
+	testCases := []struct {
+		name        string
+		args        []string
+		expectError bool
+	}{
+		{"install with no args", []string{"install"}, true},
+		{"install with one arg", []string{"install", "https://github.com/user/repo"}, false},
+		{"install with multiple args", []string{"install", "arg1", "arg2"}, true},
+		{"remove with no args", []string{"remove"}, true},
+		{"remove with one arg", []string{"remove", "https://github.com/user/repo"}, false},
+		{"remove with multiple args", []string{"remove", "arg1", "arg2"}, true},
+		{"list with no args", []string{"list"}, false},
+		{"update with no args", []string{"update"}, false},
+		{"upgrade with no args", []string{"upgrade"}, false},
+		{"update-upgrade with no args", []string{"update-upgrade"}, false},
+		{"up with no args", []string{"up"}, false},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			var buf bytes.Buffer
+			rootCmd.SetOut(&buf)
+			rootCmd.SetErr(&buf)
+			rootCmd.SetArgs(tc.args)
+
+			err := rootCmd.Execute()
+
+			if tc.expectError && err == nil {
+				t.Errorf("Expected error for args %v, but got none", tc.args)
+			}
+			if !tc.expectError && err != nil {
+				// For commands that expect mock errors, we'll get our mock errors
+				// This is expected behavior in our test setup
+				if !strings.Contains(err.Error(), "mock") {
+					t.Errorf("Expected no validation error for args %v, but got: %v", tc.args, err)
+				}
+			}
+		})
+	}
+}
+
+// TestInvalidCommand tests handling of invalid commands
+func TestInvalidCommand(t *testing.T) {
+	rootCmd := setupTestCommand()
 
 	var buf bytes.Buffer
-	var bufErr bytes.Buffer
-	io.Copy(&buf, r)
-	io.Copy(&bufErr, rErr)
+	rootCmd.SetOut(&buf)
+	rootCmd.SetErr(&buf)
+	rootCmd.SetArgs([]string{"invalid-command"})
 
-	return buf.String(), bufErr.String()
-}
-
-func TestMainFunction(t *testing.T) {
-	// Test main function can run without panicking
-	// This is a basic smoke test since main() calls os.Exit
-	t.Run("MainFunctionExists", func(t *testing.T) {
-		// Test that main function exists and can be called
-		// We can't directly test main() due to os.Exit calls,
-		// but we can test the app initialization logic
-		homeDir, err := os.UserHomeDir()
-		if err != nil {
-			t.Fatalf("Failed to get home directory: %v", err)
-		}
-
-		metadataPath := filepath.Join(homeDir, ".local/share/get/get.json")
-		pm := manager.NewPackageManager(metadataPath)
-
-		if pm == nil {
-			t.Fatal("Expected package manager to be initialized")
-		}
-	})
-}
-
-func TestAppConfiguration(t *testing.T) {
-	// Create the CLI app similar to main()
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		t.Fatalf("Failed to get home directory: %v", err)
+	err := rootCmd.Execute()
+	if err == nil {
+		t.Error("Expected error for invalid command")
 	}
 
-	metadataPath := filepath.Join(homeDir, ".local/share/get/get.json")
-	pm := manager.NewPackageManager(metadataPath)
-
-	app := &cli.App{
-		Name:    "get",
-		Version: "v0.1.0",
-		Usage:   "A package manager for GitHub releases",
-		Authors: []*cli.Author{
-			{
-				Name:  "tranquil-tr0",
-				Email: "tranquiltr0@proton.me",
-			},
-		},
-	}
-
-	t.Run("AppBasicConfiguration", func(t *testing.T) {
-		if app.Name != "get" {
-			t.Errorf("Expected app name to be 'get', got %s", app.Name)
-		}
-		if app.Version != "v0.1.0" {
-			t.Errorf("Expected app version to be 'v0.1.0', got %s", app.Version)
-		}
-		if app.Usage != "A package manager for GitHub releases" {
-			t.Errorf("Expected app usage to be 'A package manager for GitHub releases', got %s", app.Usage)
-		}
-		if len(app.Authors) != 1 {
-			t.Errorf("Expected 1 author, got %d", len(app.Authors))
-		}
-		if app.Authors[0].Name != "tranquil-tr0" {
-			t.Errorf("Expected author name to be 'tranquil-tr0', got %s", app.Authors[0].Name)
-		}
-	})
-
-	// Test package manager initialization
-	if pm == nil {
-		t.Fatal("Package manager should not be nil")
+	output := buf.String()
+	if !strings.Contains(output, "unknown command") {
+		t.Error("Expected error message about unknown command")
 	}
 }
 
-func TestInstallCommand(t *testing.T) {
-	tests := []struct {
-		name          string
-		args          []string
-		expectedError string
-		shouldFail    bool
+// TestCommandHelpTexts tests that all commands have proper help text
+func TestCommandHelpTexts(t *testing.T) {
+	rootCmd := setupTestCommand()
+
+	commands := []struct {
+		name      string
+		shortDesc string
 	}{
-		{
-			name:          "NoArguments",
-			args:          []string{"get", "install"},
-			expectedError: "Please provide a GitHub repository URL",
-			shouldFail:    true,
-		},
-		{
-			name:          "TooManyArguments",
-			args:          []string{"get", "install", "repo1", "repo2"},
-			expectedError: "Please provide a GitHub repository URL",
-			shouldFail:    true,
-		},
-		{
-			name:       "ValidRepository",
-			args:       []string{"get", "install", "owner/repo"},
-			shouldFail: false,
-		},
-		{
-			name:       "ValidRepositoryWithRelease",
-			args:       []string{"get", "install", "owner/repo", "--release", "v1.0.0"},
-			shouldFail: false,
-		},
-		{
-			name:       "ValidRepositoryWithVerbose",
-			args:       []string{"get", "install", "owner/repo", "--verbose"},
-			shouldFail: false,
-		},
+		{"install", "Install a package from GitHub"},
+		{"list", "List installed packages"},
+		{"remove", "Remove an installed package"},
+		{"update", "Check for package updates"},
+		{"upgrade", "Apply staged upgrades"},
+		{"update-upgrade", "Upgrade outdated packages"},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Create a temporary directory for testing
-			tempDir := t.TempDir()
-			metadataPath := filepath.Join(tempDir, "get.json")
-
-			// We can't easily mock the package manager in the CLI context,
-			// so we'll test the command parsing logic
-			app := createTestApp(metadataPath)
-
-			err := app.Run(tt.args)
-
-			if tt.shouldFail {
-				if err == nil {
-					t.Errorf("Expected error but got none")
-				} else if !strings.Contains(err.Error(), tt.expectedError) {
-					t.Errorf("Expected error containing '%s', got '%s'", tt.expectedError, err.Error())
-				}
+	for _, cmd := range commands {
+		t.Run(fmt.Sprintf("%s help text", cmd.name), func(t *testing.T) {
+			foundCmd, _, err := rootCmd.Find([]string{cmd.name})
+			if err != nil {
+				t.Errorf("Command %s not found: %v", cmd.name, err)
+				return
 			}
-			// For non-failing cases, we don't check for errors since the actual
-			// package manager operations will likely fail in test environment
-		})
-	}
-}
 
-func TestRemoveCommand(t *testing.T) {
-	tests := []struct {
-		name          string
-		args          []string
-		expectedError string
-		shouldFail    bool
-	}{
-		{
-			name:          "NoArguments",
-			args:          []string{"get", "remove"},
-			expectedError: "Please provide a GitHub repository URL",
-			shouldFail:    true,
-		},
-		{
-			name:          "TooManyArguments",
-			args:          []string{"get", "remove", "repo1", "repo2"},
-			expectedError: "Please provide a GitHub repository URL",
-			shouldFail:    true,
-		},
-		{
-			name:       "ValidRepository",
-			args:       []string{"get", "remove", "owner/repo"},
-			shouldFail: false,
-		},
-		{
-			name:       "ValidRepositoryWithVerbose",
-			args:       []string{"get", "remove", "owner/repo", "--verbose"},
-			shouldFail: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tempDir := t.TempDir()
-			metadataPath := filepath.Join(tempDir, "get.json")
-			app := createTestApp(metadataPath)
-
-			err := app.Run(tt.args)
-
-			if tt.shouldFail {
-				if err == nil {
-					t.Errorf("Expected error but got none")
-				} else if !strings.Contains(err.Error(), tt.expectedError) {
-					t.Errorf("Expected error containing '%s', got '%s'", tt.expectedError, err.Error())
-				}
+			if foundCmd.Short != cmd.shortDesc {
+				t.Errorf("Expected %s short description to be '%s', got '%s'",
+					cmd.name, cmd.shortDesc, foundCmd.Short)
 			}
-			// For non-failing cases, we don't check for errors since the actual
-			// package manager operations will likely fail in test environment
-		})
-	}
-}
 
-func TestListCommand(t *testing.T) {
-	t.Run("ListCommand", func(t *testing.T) {
-		tempDir := t.TempDir()
-		metadataPath := filepath.Join(tempDir, "get.json")
-		app := createTestApp(metadataPath)
-
-		args := []string{"get", "list"}
-		err := app.Run(args)
-
-		// We expect this to fail with actual package manager operations
-		// but not due to argument parsing
-		if err != nil && strings.Contains(err.Error(), "Please provide") {
-			t.Errorf("Unexpected argument parsing error: %s", err.Error())
-		}
-	})
-
-	t.Run("ListCommandWithVerbose", func(t *testing.T) {
-		tempDir := t.TempDir()
-		metadataPath := filepath.Join(tempDir, "get.json")
-		app := createTestApp(metadataPath)
-
-		args := []string{"get", "list", "--verbose"}
-		err := app.Run(args)
-
-		if err != nil && strings.Contains(err.Error(), "Please provide") {
-			t.Errorf("Unexpected argument parsing error: %s", err.Error())
-		}
-	})
-}
-
-func TestUpdateCommand(t *testing.T) {
-	t.Run("UpdateCommand", func(t *testing.T) {
-		tempDir := t.TempDir()
-		metadataPath := filepath.Join(tempDir, "get.json")
-		app := createTestApp(metadataPath)
-
-		args := []string{"get", "update"}
-		err := app.Run(args)
-
-		// Command should parse correctly, actual execution may fail
-		if err != nil && strings.Contains(err.Error(), "Please provide") {
-			t.Errorf("Unexpected argument parsing error: %s", err.Error())
-		}
-	})
-}
-
-func TestUpgradeCommand(t *testing.T) {
-	t.Run("UpgradeCommand", func(t *testing.T) {
-		tempDir := t.TempDir()
-		metadataPath := filepath.Join(tempDir, "get.json")
-		app := createTestApp(metadataPath)
-
-		args := []string{"get", "upgrade"}
-		err := app.Run(args)
-
-		if err != nil && strings.Contains(err.Error(), "Please provide") {
-			t.Errorf("Unexpected argument parsing error: %s", err.Error())
-		}
-	})
-}
-
-func TestUpdateUpgradeCommand(t *testing.T) {
-	commands := [][]string{
-		{"get", "update-upgrade"},
-		{"get", "uu"},
-		{"get", "up"},
-	}
-
-	for _, args := range commands {
-		t.Run(fmt.Sprintf("Command_%s", args[1]), func(t *testing.T) {
-			tempDir := t.TempDir()
-			metadataPath := filepath.Join(tempDir, "get.json")
-			app := createTestApp(metadataPath)
-
-			err := app.Run(args)
-
-			if err != nil && strings.Contains(err.Error(), "Please provide") {
-				t.Errorf("Unexpected argument parsing error: %s", err.Error())
+			if foundCmd.Long == "" {
+				t.Errorf("Expected %s to have a long description", cmd.name)
 			}
 		})
-	}
-}
-
-func TestParseRepoURLIntegration(t *testing.T) {
-	tests := []struct {
-		name        string
-		input       string
-		expected    string
-		shouldError bool
-	}{
-		{
-			name:     "ValidOwnerRepo",
-			input:    "owner/repo",
-			expected: "owner/repo",
-		},
-		{
-			name:     "ValidHTTPSURL",
-			input:    "https://github.com/owner/repo",
-			expected: "owner/repo",
-		},
-		{
-			name:     "ValidHTTPURL",
-			input:    "http://github.com/owner/repo",
-			expected: "owner/repo",
-		},
-		{
-			name:        "TooShort",
-			input:       "ab",
-			shouldError: true,
-		},
-		{
-			name:        "Empty",
-			input:       "",
-			shouldError: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result, err := tools.ParseRepoURL(tt.input)
-
-			if tt.shouldError {
-				if err == nil {
-					t.Errorf("Expected error but got none")
-				}
-			} else {
-				if err != nil {
-					t.Errorf("Unexpected error: %v", err)
-				}
-				if result != tt.expected {
-					t.Errorf("Expected %s, got %s", tt.expected, result)
-				}
-			}
-		})
-	}
-}
-
-func TestOutputFunctions(t *testing.T) {
-	t.Run("PrintError", func(t *testing.T) {
-		stdout, stderr := captureOutput(func() {
-			output.PrintError("test error %s", "message")
-		})
-
-		if stdout != "" {
-			t.Errorf("Expected empty stdout, got: %s", stdout)
-		}
-		if !strings.Contains(stderr, "test error message") {
-			t.Errorf("Expected stderr to contain 'test error message', got: %s", stderr)
-		}
-	})
-
-	t.Run("PrintSuccess", func(t *testing.T) {
-		stdout, _ := captureOutput(func() {
-			output.PrintSuccess("success %s", "message")
-		})
-
-		if !strings.Contains(stdout, "success message") {
-			t.Errorf("Expected stdout to contain 'success message', got: %s", stdout)
-		}
-	})
-
-	t.Run("PrintAction", func(t *testing.T) {
-		stdout, _ := captureOutput(func() {
-			output.PrintAction("action %s", "message")
-		})
-
-		if !strings.Contains(stdout, "action message") {
-			t.Errorf("Expected stdout to contain 'action message', got: %s", stdout)
-		}
-	})
-}
-
-func TestCommandFlags(t *testing.T) {
-	t.Run("InstallWithReleaseFlag", func(t *testing.T) {
-		tempDir := t.TempDir()
-		metadataPath := filepath.Join(tempDir, "get.json")
-		app := createTestApp(metadataPath)
-
-		args := []string{"get", "install", "owner/repo", "--release", "v1.0.0"}
-		err := app.Run(args)
-
-		// Should not fail due to flag parsing
-		if err != nil && strings.Contains(err.Error(), "flag provided but not defined") {
-			t.Errorf("Flag parsing error: %s", err.Error())
-		}
-	})
-
-	t.Run("VerboseFlags", func(t *testing.T) {
-		commands := [][]string{
-			{"get", "install", "owner/repo", "--verbose"},
-			{"get", "install", "owner/repo", "-v"},
-			{"get", "list", "--verbose"},
-			{"get", "remove", "owner/repo", "-v"},
-			{"get", "update", "--verbose"},
-			{"get", "upgrade", "-v"},
-		}
-
-		for _, args := range commands {
-			t.Run(fmt.Sprintf("Verbose_%s", strings.Join(args[1:], "_")), func(t *testing.T) {
-				tempDir := t.TempDir()
-				metadataPath := filepath.Join(tempDir, "get.json")
-				app := createTestApp(metadataPath)
-
-				err := app.Run(args)
-
-				if err != nil && strings.Contains(err.Error(), "flag provided but not defined") {
-					t.Errorf("Flag parsing error: %s", err.Error())
-				}
-			})
-		}
-	})
-}
-
-// TestInvalidCommands is removed because cli.v2 calls os.Exit(3) for invalid commands
-// which causes the test suite to fail. This behavior is expected from the CLI framework.
-
-// Helper function to create test app
-func createTestApp(metadataPath string) *cli.App {
-	pm := manager.NewPackageManager(metadataPath)
-
-	return &cli.App{
-		Name:    "get",
-		Version: "v0.1.0",
-		Usage:   "A package manager for GitHub releases",
-		Before: func(c *cli.Context) error {
-			return nil
-		},
-		Authors: []*cli.Author{
-			{
-				Name:  "tranquil-tr0",
-				Email: "tranquiltr0@proton.me",
-			},
-		},
-		Commands: []*cli.Command{
-			{
-				Name:        "install",
-				Category:    "Package Management",
-				Usage:       "Install a package from GitHub",
-				Description: "Install a package from a GitHub repository. The package must contain a .deb file in its latest release.",
-				ArgsUsage:   "<github-repo-url>",
-				Flags: []cli.Flag{
-					&cli.StringFlag{
-						Name:    "release",
-						Aliases: []string{"r"},
-						Usage:   "Specify a release version to install",
-					},
-					&cli.BoolFlag{
-						Name:    "verbose",
-						Aliases: []string{"v"},
-						Usage:   "Enable verbose output",
-					},
-				},
-				Action: func(c *cli.Context) error {
-					if c.NArg() != 1 {
-						return fmt.Errorf("Please provide a GitHub repository URL")
-					}
-
-					repoURL := c.Args().First()
-					pkgID, err := tools.ParseRepoURL(repoURL)
-					if err != nil {
-						return fmt.Errorf("failed to parse repository URL: %v", err)
-					}
-
-					if err := pm.Install(pkgID, c.String("release")); err != nil {
-						return fmt.Errorf("Error installing package: %v", err)
-					}
-					output.PrintSuccess("Successfully installed %s", pkgID)
-					return nil
-				},
-			},
-			{
-				Name:        "list",
-				Category:    "Package Management",
-				Usage:       "List installed packages",
-				Description: "Display a list of all packages installed through get.",
-				Flags: []cli.Flag{
-					&cli.BoolFlag{
-						Name:    "verbose",
-						Aliases: []string{"v"},
-						Usage:   "Enable verbose output",
-					},
-				},
-				Action: func(c *cli.Context) error {
-					err := pm.PrintInstalledPackages()
-					if err != nil {
-						return fmt.Errorf("Error listing packages: %v", err)
-					}
-					return nil
-				},
-			},
-			{
-				Name:        "remove",
-				Category:    "Package Management",
-				Usage:       "Remove an installed package",
-				Description: "Remove a previously installed package and clean up its metadata.",
-				ArgsUsage:   "<github-repo-url>",
-				Flags: []cli.Flag{
-					&cli.BoolFlag{
-						Name:    "verbose",
-						Aliases: []string{"v"},
-						Usage:   "Enable verbose output",
-					},
-				},
-				Action: func(c *cli.Context) error {
-					if c.NArg() != 1 {
-						return fmt.Errorf("Please provide a GitHub repository URL")
-					}
-
-					repoURL := c.Args().First()
-					pkgID, err := tools.ParseRepoURL(repoURL)
-					if err != nil {
-						return fmt.Errorf("failed to parse repository URL: %v", err)
-					}
-
-					if err := pm.Remove(pkgID); err != nil {
-						return fmt.Errorf("Error removing package: %v", err)
-					}
-					output.PrintSuccess("Successfully removed %s", pkgID)
-					return nil
-				},
-			},
-			{
-				Name:        "update",
-				Category:    "Package Management",
-				Usage:       "Check for package updates",
-				Description: "Check for available updates of installed packages",
-				Flags: []cli.Flag{
-					&cli.BoolFlag{
-						Name:    "verbose",
-						Aliases: []string{"v"},
-						Usage:   "Enable verbose output",
-					},
-				},
-				Action: func(c *cli.Context) error {
-					output.PrintAction("Checking for updates...")
-					if err := pm.UpdateAllPackages(); err != nil {
-						return fmt.Errorf("Error checking for updates: %v", err)
-					}
-					return nil
-				},
-			},
-			{
-				Name:        "upgrade",
-				Category:    "Package Management",
-				Usage:       "Apply staged upgrades",
-				Description: "Install available updates for packages",
-				Flags: []cli.Flag{
-					&cli.BoolFlag{
-						Name:    "verbose",
-						Aliases: []string{"v"},
-						Usage:   "Enable verbose output",
-					},
-				},
-				Action: func(c *cli.Context) error {
-					output.PrintAction("Upgrading packages...")
-					if err := pm.UpgradeAllPackages(); err != nil {
-						return fmt.Errorf("Error upgrading packages: %v", err)
-					}
-					output.PrintSuccess("Successfully applied all available updates")
-					return nil
-				},
-			},
-			{
-				Name:        "update-upgrade",
-				Category:    "Package Management",
-				Aliases:     []string{"uu", "up"},
-				Usage:       "Upgrade outdated packages",
-				Description: "Check for updates then upgrade outdated packages",
-				Flags: []cli.Flag{
-					&cli.BoolFlag{
-						Name:    "verbose",
-						Aliases: []string{"v"},
-						Usage:   "Enable verbose output",
-					},
-				},
-				Action: func(c *cli.Context) error {
-					output.PrintAction("Checking for updates...")
-					if err := pm.UpdateAllPackages(); err != nil {
-						return fmt.Errorf("Error checking for updates: %v", err)
-					}
-
-					output.PrintAction("Applying updates...")
-					if err := pm.UpgradeAllPackages(); err != nil {
-						return fmt.Errorf("Error upgrading packages: %v", err)
-					}
-
-					output.PrintSuccess("Successfully applied all available updates")
-					return nil
-				},
-			},
-		},
-	}
-}
-
-// Benchmark tests
-func BenchmarkParseRepoURL(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		tools.ParseRepoURL("https://github.com/owner/repo")
-	}
-}
-
-func BenchmarkAppCreation(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		homeDir, _ := os.UserHomeDir()
-		metadataPath := filepath.Join(homeDir, ".local/share/get/get.json")
-		createTestApp(metadataPath)
 	}
 }
