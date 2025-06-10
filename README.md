@@ -4,4 +4,4 @@ the idea is to have a cli that will let you install and manage packages from git
 TODO later
 
 ---
-built with go, and [cli](github.com/urfave/cli/v2)
+built with go and conda
