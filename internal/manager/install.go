@@ -63,66 +63,60 @@ func (pm *PackageManager) InstallRelease(pkgID string, release *github.Release) 
 	file.Close()
 	output.PrintVerboseComplete("Save package file", packagePath)
 
-	// Install with apt
-	fmt.Println("Installing with apt...")
-	output.PrintVerboseStart("Installing package with apt", packagePath)
-	cmd := exec.Command("sudo", "-p", "[get] Password required for package installation: ", "apt", "install", "-y", packagePath)
-	output.PrintVerboseDebug("APT", "Command: %v", cmd.Args)
-	cmdReader, pipeErr := cmd.StdoutPipe()
-	if pipeErr != nil {
-		output.PrintVerboseError("Create apt output pipe", pipeErr)
-		return fmt.Errorf("failed to create output pipe: %v", pipeErr)
-	}
-	cmd.Stderr = cmd.Stdout
-
-	if startErr := cmd.Start(); startErr != nil {
-		output.PrintVerboseError("Start apt installation", startErr)
-		return fmt.Errorf("failed to start installation: %v", startErr)
+	// Validate package before installation
+	if err := pm.ValidateDebPackage(packagePath); err != nil {
+		return fmt.Errorf("package validation failed: %v", err)
 	}
 
-	// Capture output for package name
-	output.PrintVerboseDebug("APT", "Capturing installation output")
-	var outputBuilder strings.Builder
-	buf := make([]byte, 1024)
-	for {
-		n, err := cmdReader.Read(buf)
-		if n > 0 {
-			outputBuilder.Write(buf[:n])
-		}
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			output.PrintVerboseError("Read apt output", err)
-			return fmt.Errorf("error reading output: %v", err)
+	// Install with dpkg (more direct than apt)
+	fmt.Println("Installing with dpkg...")
+	output.PrintVerboseStart("Installing package with dpkg", packagePath)
+	cmd := exec.Command("sudo", "-p", "[get] Password required for package installation: ", "dpkg", "-i", packagePath)
+	output.PrintVerboseDebug("DPKG", "Command: %v", cmd.Args)
+
+	// Run dpkg installation
+	cmdOutput, dpkgErr := cmd.CombinedOutput()
+	output.PrintVerboseDebug("DPKG", "Installation output: %s", string(cmdOutput))
+
+	if dpkgErr != nil {
+		// If dpkg fails due to missing dependencies, try to fix with apt
+		if strings.Contains(string(cmdOutput), "dependency problems") {
+			output.PrintVerboseStart("Fixing dependency issues with apt")
+			fixCmd := exec.Command("sudo", "apt", "-f", "install", "-y")
+			fixOutput, fixErr := fixCmd.CombinedOutput()
+			output.PrintVerboseDebug("APT", "Dependency fix output: %s", string(fixOutput))
+			if fixErr != nil {
+				output.PrintVerboseError("Fix dependencies", fixErr)
+				return fmt.Errorf("failed to fix dependencies: %v\nOutput: %s", fixErr, fixOutput)
+			}
+			output.PrintVerboseComplete("Fix dependency issues")
+		} else {
+			output.PrintVerboseError("Install package with dpkg", dpkgErr)
+			return fmt.Errorf("dpkg installation failed: %v\nOutput: %s", dpkgErr, cmdOutput)
 		}
 	}
+	output.PrintVerboseComplete("Install package with dpkg")
 
-	if waitErr := cmd.Wait(); waitErr != nil {
-		output.PrintVerboseError("Wait for apt installation", waitErr)
-		return fmt.Errorf("installation failed: %v", waitErr)
-	}
-	output.PrintVerboseComplete("Install package with apt")
-
-	// Extract apt package name
-	output.PrintVerboseStart("Extracting package name from apt output")
-	outputStr := outputBuilder.String()
-	output.PrintVerboseDebug("APT", "Parsing output (%d lines)", len(strings.Split(outputStr, "\n")))
-	lines := strings.Split(outputStr, "\n")
-	var aptPackageName string
-	var prevLine string
-
-	for _, line := range lines {
-		if strings.TrimSpace(prevLine) == "Installing:" || strings.TrimSpace(prevLine) == "Upgrading:" {
-			aptPackageName = strings.TrimSpace(line)
-			break
+	// Extract package name using dpkg-deb (most reliable method)
+	output.PrintVerboseStart("Extracting package name")
+	aptPackageName, nameErr := pm.GetPackageNameFromDeb(packagePath)
+	if nameErr != nil {
+		// Fallback: extract from .deb filename
+		output.PrintVerboseDebug("DPKG", "Falling back to extracting from .deb filename")
+		debFilename := filepath.Base(packagePath)
+		if strings.HasSuffix(debFilename, ".deb") {
+			nameWithoutExt := strings.TrimSuffix(debFilename, ".deb")
+			// Common pattern: package-name_version_arch.deb
+			parts := strings.Split(nameWithoutExt, "_")
+			if len(parts) > 0 {
+				aptPackageName = parts[0]
+			}
 		}
-		prevLine = line
-	}
-
-	if aptPackageName == "" {
-		output.PrintVerboseError("Extract package name", fmt.Errorf("package name not found in apt output"))
-		return fmt.Errorf("failed to find package name in apt output")
+		
+		if aptPackageName == "" {
+			output.PrintVerboseError("Extract package name", nameErr)
+			return fmt.Errorf("failed to extract package name: %v", nameErr)
+		}
 	}
 	output.PrintVerboseComplete("Extract package name", aptPackageName)
 
@@ -158,7 +152,13 @@ func (pm *PackageManager) InstallRelease(pkgID string, release *github.Release) 
 	err := pm.WritePackageManagerMetadata(metadata)
 	if err != nil {
 		output.PrintVerboseError("Write package metadata", err)
-		return err
+		// Attempt rollback if metadata write fails
+		output.PrintVerboseStart("Attempting rollback due to metadata write failure")
+		if rollbackErr := pm.RollbackInstallation(aptPackageName); rollbackErr != nil {
+			output.PrintVerboseError("Rollback installation", rollbackErr)
+			return fmt.Errorf("installation succeeded but metadata write failed, and rollback also failed: %v (rollback error: %v)", err, rollbackErr)
+		}
+		return fmt.Errorf("installation succeeded but metadata write failed (package was rolled back): %v", err)
 	}
 	output.PrintVerboseComplete("Update package metadata")
 	return nil
@@ -216,4 +216,71 @@ func (pm *PackageManager) InstallVersion(pkgID string, version string) error {
 
 	// install the package with a call to InstallRelease, and returns error
 	return pm.InstallRelease(pkgID, release)
+}
+
+// ValidateDebPackage validates a .deb package before installation
+func (pm *PackageManager) ValidateDebPackage(packagePath string) error {
+	output.PrintVerboseStart("Validating .deb package", packagePath)
+
+	// Check if file exists and is readable
+	if _, err := os.Stat(packagePath); err != nil {
+		output.PrintVerboseError("Check package file", err)
+		return fmt.Errorf("package file not accessible: %v", err)
+	}
+
+	// Use dpkg --info to validate the package
+	cmd := exec.Command("dpkg", "--info", packagePath)
+	output.PrintVerboseDebug("DPKG", "Validation command: %v", cmd.Args)
+
+	cmdOutput, err := cmd.CombinedOutput()
+	if err != nil {
+		output.PrintVerboseError("Validate package", err)
+		output.PrintVerboseDebug("DPKG", "Validation output: %s", string(cmdOutput))
+		return fmt.Errorf("invalid .deb package: %v", err)
+	}
+
+	output.PrintVerboseComplete("Validate .deb package")
+	output.PrintVerboseDebug("DPKG", "Package info: %s", string(cmdOutput))
+	return nil
+}
+
+// GetPackageNameFromDeb extracts package name from .deb file using dpkg-deb
+func (pm *PackageManager) GetPackageNameFromDeb(packagePath string) (string, error) {
+	output.PrintVerboseStart("Extracting package name using dpkg-deb", packagePath)
+
+	// Use dpkg-deb to get package name reliably
+	cmd := exec.Command("dpkg-deb", "--field", packagePath, "Package")
+	output.PrintVerboseDebug("DPKG", "Package name extraction command: %v", cmd.Args)
+
+	cmdOutput, err := cmd.CombinedOutput()
+	if err != nil {
+		output.PrintVerboseError("Extract package name with dpkg-deb", err)
+		return "", fmt.Errorf("failed to extract package name: %v", err)
+	}
+
+	packageName := strings.TrimSpace(string(cmdOutput))
+	if packageName == "" {
+		return "", fmt.Errorf("empty package name extracted")
+	}
+
+	output.PrintVerboseComplete("Extract package name using dpkg-deb", packageName)
+	return packageName, nil
+}
+
+// RollbackInstallation removes a package if installation metadata update fails
+func (pm *PackageManager) RollbackInstallation(packageName string) error {
+	output.PrintVerboseStart("Rolling back installation", packageName)
+	
+	cmd := exec.Command("sudo", "dpkg", "--remove", packageName)
+	output.PrintVerboseDebug("DPKG", "Rollback command: %v", cmd.Args)
+	
+	cmdOutput, err := cmd.CombinedOutput()
+	if err != nil {
+		output.PrintVerboseError("Rollback installation", err)
+		output.PrintVerboseDebug("DPKG", "Rollback output: %s", string(cmdOutput))
+		return fmt.Errorf("rollback failed: %v", err)
+	}
+	
+	output.PrintVerboseComplete("Rollback installation", packageName)
+	return nil
 }
