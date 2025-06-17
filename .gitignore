@@ -8,11 +8,11 @@
 # Test binary, built with `go test -c`
 *.test
 
-# Test binary
+# Test main program binary
 get
 
-# Shell script
-u.sh
+# Testing scripts
+*.sh
 
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
