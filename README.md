@@ -1,7 +1,7 @@
 # Get
-the idea is to have a cli that will let you install and manage packages from github without worrying about leaving unupdated useless packages lying all over your system
-## Install
-TODO later
 
----
-built with go, and [cli](github.com/urfave/cli/v2)
+A CLI tool to install and manage packages from GitHub, helping you avoid outdated or unused packages cluttering your system.
+
+## Install
+
+The release is a standalone binary. Simply download, place it in your `$PATH`, and start using.
