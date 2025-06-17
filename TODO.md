@@ -1,0 +1,3 @@
+- support prereleases
+- support binaries (non deb formats)
+- better install logs
