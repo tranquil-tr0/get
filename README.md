@@ -13,6 +13,7 @@ This will install to /usr/local/bin and can be uninstalled with:
 ```sh
 rm /usr/local/bin/get
 ```
+You should also delete the json file in ~/.local/share/get/
 
 ---
 built with go and conda
