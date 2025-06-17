@@ -1,3 +1,5 @@
 - support prereleases
 - support binaries (non deb formats)
 - better install logs
+- support direct links to autoupdating files like beeper
+- consider supporting zips

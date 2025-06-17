@@ -13,7 +13,16 @@ This will install to /usr/local/bin and can be uninstalled with:
 ```sh
 rm /usr/local/bin/get
 ```
-You should also delete the json file in ~/.local/share/get/
+You should also delete the json file in `~/.local/share/get/`
+
+## How do I use this?
+You can learn more about each command by running `--help` - for example:
+`get --help`
+`get install --help`
+`get update --help`
+
+## Contributing
+feel free to file issues and PRs
 
 ---
 built with go and conda
