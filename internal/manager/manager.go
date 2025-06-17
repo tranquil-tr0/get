@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/tranquil-tr0/get/internal/github"
 )
@@ -60,6 +61,11 @@ func (pm *PackageManager) WritePackageManagerMetadata(metadata *PackageManagerMe
 	data, err := json.MarshalIndent(metadata, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal metadata: %v", err)
+	}
+
+	// Ensure the directory exists before writing the file
+	if err := os.MkdirAll(filepath.Dir(pm.MetadataPath), 0755); err != nil {
+		return fmt.Errorf("failed to create metadata directory: %v", err)
 	}
 
 	if err := os.WriteFile(pm.MetadataPath, data, 0644); err != nil {
