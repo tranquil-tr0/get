@@ -5,3 +5,6 @@ A CLI tool to install and manage packages from GitHub, helping you avoid outdate
 ## Install
 
 The release is a standalone binary. Simply download, place it in your `$PATH`, and start using.
+
+---
+built with go and conda
