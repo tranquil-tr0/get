@@ -27,24 +27,6 @@ log_error() {
     echo -e "${RED}✗${NC} $1"
 }
 
-# Detect system architecture
-detect_arch() {
-    case $(uname -m) in
-        x86_64|amd64) echo "amd64" ;;
-        aarch64|arm64) echo "arm64" ;;
-        *) log_error "Unsupported architecture: $(uname -m)"; exit 1 ;;
-    esac
-}
-
-# Detect operating system
-detect_os() {
-    case "$OSTYPE" in
-        linux-gnu*) echo "linux" ;;
-        darwin*) echo "darwin" ;;
-        *) log_error "Unsupported OS: $OSTYPE"; exit 1 ;;
-    esac
-}
-
 # Get latest release version
 get_latest_version() {
     local api_url="https://api.github.com/repos/${GITHUB_REPO}/releases/latest"
@@ -61,23 +43,19 @@ get_latest_version() {
 
 # Download and install binary
 install_binary() {
-    local os=$(detect_os)
-    local arch=$(detect_arch)
     local version=$(get_latest_version)
     
-    log_info "Detected: $os/$arch"
     log_info "Latest version: $version"
     
     # Create temp directory
     local temp_dir=$(mktemp -d)
     trap "rm -rf '$temp_dir'" EXIT
     
-    # Construct download URL
-    local binary_name="${BINARY_NAME}-${os}-${arch}"
-    local download_url="https://github.com/${GITHUB_REPO}/releases/download/${version}/${binary_name}"
-    local temp_file="${temp_dir}/${binary_name}"
+    # Construct download URL - single binary named "get"
+    local download_url="https://github.com/${GITHUB_REPO}/releases/download/${version}/${BINARY_NAME}"
+    local temp_file="${temp_dir}/${BINARY_NAME}"
     
-    log_info "Downloading ${binary_name}..."
+    log_info "Downloading ${BINARY_NAME}..."
     
     if command -v curl >/dev/null 2>&1; then
         curl -L -o "$temp_file" "$download_url" || {
