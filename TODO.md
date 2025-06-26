@@ -6,3 +6,4 @@
 - improve same file recognition
 - allow upgrade just one package
 - mark packages
+- add version flag
