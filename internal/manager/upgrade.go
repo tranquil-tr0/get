@@ -122,7 +122,11 @@ func (pm *PackageManager) UpgradeSpecificPackage(pkgID string) error {
 			scanner.Scan()
 			input := strings.TrimSpace(scanner.Text())
 			if strings.ToLower(input) == "n" {
-				chosenAsset = nil
+				selectedAsset, _, err := pm.SelectAssetInteractively(release)
+				if err != nil {
+					return err
+				}
+				chosenAsset = selectedAsset
 			}
 		}
 	} else {
