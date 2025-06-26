@@ -9,7 +9,11 @@ You can also download with the install script:
 ```sh
 bash <(curl -fsSL https://raw.githubusercontent.com/tranquil-tr0/get/refs/heads/main/install.sh)
 ```
-This will install to /usr/local/bin and can be uninstalled with:
+This will install to `/usr/local/bin`, as will installed binaries.
+
+Run `get install tranquil-tr0/get` to start it tracking itself.
+
+**Uninstall with:**
 ```sh
 rm /usr/local/bin/get
 ```
