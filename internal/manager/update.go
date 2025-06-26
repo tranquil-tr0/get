@@ -165,10 +165,10 @@ func (pm *PackageManager) UpdatePackageAndReturnNewVersion(pkgID string) (hasNew
 		}
 
 		if updateVersion == "" { // if there is no pending update, (if it is a new update)
-			output.PrintVerboseDebug("UPDATE", "Adding new pending update: %s -> %s", pkg.Version, latestVersionString)
+			output.PrintVerboseDebug("UPDATE", "Adding new pending update: %s -> %s (tag: %s)", pkg.Version, latestVersionString, latestRelease.TagName)
 			hasNewUpdate = true
-			// Add the pending update to metadata
-			metadata.PendingUpdates[pkgID] = latestVersionString
+			// Add the pending update to metadata - store the original tag name, not the normalized version
+			metadata.PendingUpdates[pkgID] = latestRelease.TagName
 			// Actually save the metadata
 			output.PrintVerboseStart("Saving pending update to metadata")
 			if err := pm.WritePackageManagerMetadata(metadata); err != nil {
