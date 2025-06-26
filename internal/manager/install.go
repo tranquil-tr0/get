@@ -92,6 +92,10 @@ func (pm *PackageManager) SelectAssetInteractively(release *github.Release) (*gi
 }
 
 func (pm *PackageManager) InstallRelease(pkgID string, release *github.Release, preSelectedAsset *github.Asset) error {
+	return pm.InstallReleaseWithOptions(pkgID, release, preSelectedAsset, nil)
+}
+
+func (pm *PackageManager) InstallReleaseWithOptions(pkgID string, release *github.Release, preSelectedAsset *github.Asset, options *github.ReleaseOptions) error {
 	var selectedAsset *github.Asset
 	var installType string
 	var err error
@@ -136,16 +140,16 @@ func (pm *PackageManager) InstallRelease(pkgID string, release *github.Release, 
 	// Route to appropriate installation method
 	switch installType {
 	case "deb":
-		return pm.InstallDebPackage(pkgID, release, selectedAsset)
+		return pm.InstallDebPackage(pkgID, release, selectedAsset, options)
 	case "binary":
-		return pm.InstallBinary(pkgID, release, selectedAsset)
+		return pm.InstallBinary(pkgID, release, selectedAsset, options)
 	default:
 		return fmt.Errorf("unsupported installation type: %s", installType)
 	}
 }
 
 // InstallDebPackage handles .deb package installation
-func (pm *PackageManager) InstallDebPackage(pkgID string, release *github.Release, debAsset *github.Asset) error {
+func (pm *PackageManager) InstallDebPackage(pkgID string, release *github.Release, debAsset *github.Asset, options *github.ReleaseOptions) error {
 	// Download package
 	output.PrintVerboseStart("Downloading .deb package", debAsset.BrowserDownloadURL)
 	resp, httpErr := http.Get(debAsset.BrowserDownloadURL)
@@ -240,17 +244,22 @@ func (pm *PackageManager) InstallDebPackage(pkgID string, release *github.Releas
 	output.PrintVerboseComplete("Extract package name", aptPackageName)
 
 	// Update metadata
+	tagPrefix := ""
+	if options != nil && options.TagPrefix != "" {
+		tagPrefix = options.TagPrefix
+	}
 	return pm.UpdatePackageMetadata(pkgID, release, PackageMetadata{
 		Version:      strings.TrimPrefix(release.TagName, "v"),
 		InstalledAt:  release.PublishedAt,
 		AptName:      aptPackageName,
 		InstallType:  "deb",
 		OriginalName: debAsset.Name,
+		TagPrefix:    tagPrefix,
 	})
 }
 
 // InstallBinary handles binary executable installation
-func (pm *PackageManager) InstallBinary(pkgID string, release *github.Release, binaryAsset *github.Asset) error {
+func (pm *PackageManager) InstallBinary(pkgID string, release *github.Release, binaryAsset *github.Asset, options *github.ReleaseOptions) error {
 	// Download binary
 	output.PrintVerboseStart("Downloading binary", binaryAsset.BrowserDownloadURL)
 	resp, httpErr := http.Get(binaryAsset.BrowserDownloadURL)
@@ -316,17 +325,26 @@ func (pm *PackageManager) InstallBinary(pkgID string, release *github.Release, b
 	fmt.Printf("Binary installed as: %s\n", binaryName)
 
 	// Update metadata
+	tagPrefix := ""
+	if options != nil && options.TagPrefix != "" {
+		tagPrefix = options.TagPrefix
+	}
 	return pm.UpdatePackageMetadata(pkgID, release, PackageMetadata{
 		Version:      strings.TrimPrefix(release.TagName, "v"),
 		InstalledAt:  release.PublishedAt,
 		BinaryPath:   finalBinaryPath,
 		InstallType:  "binary",
 		OriginalName: binaryAsset.Name,
+		TagPrefix:    tagPrefix,
 	})
 }
 
-// Install does InstallRelease, but an additional version and already installed sanity check
 func (pm *PackageManager) Install(pkgID string, version string) error {
+	return pm.InstallWithOptions(pkgID, version, nil)
+}
+
+// InstallWithOptions installs a package with additional options like tag prefix filtering
+func (pm *PackageManager) InstallWithOptions(pkgID string, version string, options *github.ReleaseOptions) error {
 	// Load metadata
 	output.PrintVerboseStart("Loading package metadata for installation check")
 	metadata, metaErr := pm.GetPackageManagerMetadata()
@@ -349,10 +367,18 @@ func (pm *PackageManager) Install(pkgID string, version string) error {
 	var err error
 	if version == "" {
 		output.PrintVerboseStart("Fetching latest release from GitHub", pkgID)
-		release, err = pm.GithubClient.GetLatestRelease(pkgID)
+		if options != nil {
+			release, err = pm.GithubClient.GetLatestReleaseWithOptions(pkgID, options)
+		} else {
+			release, err = pm.GithubClient.GetLatestRelease(pkgID)
+		}
 	} else {
 		output.PrintVerboseStart("Fetching specific release from GitHub", fmt.Sprintf("%s@%s", pkgID, version))
-		release, err = pm.GithubClient.GetReleaseByTag(pkgID, version)
+		if options != nil {
+			release, err = pm.GithubClient.GetReleaseByTagWithOptions(pkgID, version, options)
+		} else {
+			release, err = pm.GithubClient.GetReleaseByTag(pkgID, version)
+		}
 	}
 	if err != nil {
 		output.PrintVerboseError("Fetch GitHub release", err)
@@ -361,7 +387,7 @@ func (pm *PackageManager) Install(pkgID string, version string) error {
 	output.PrintVerboseComplete("Fetch GitHub release", release.TagName)
 
 	// install the package with a call to InstallRelease, and returns error
-	return pm.InstallRelease(pkgID, release, nil)
+	return pm.InstallReleaseWithOptions(pkgID, release, nil, options)
 }
 
 // InstallVersion does InstallRelease after fetching the release based on version

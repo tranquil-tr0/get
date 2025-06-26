@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/tranquil-tr0/get/internal/github"
 	"github.com/tranquil-tr0/get/internal/manager"
 	"github.com/tranquil-tr0/get/internal/output"
 	"github.com/tranquil-tr0/get/internal/tools"
@@ -50,6 +51,7 @@ func main() {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			repoURL := args[0]
 			release, _ := cmd.Flags().GetString("release")
+			packageType, _ := cmd.Flags().GetString("tag-prefix")
 
 			output.PrintVerboseStart("Parsing repository URL", repoURL)
 			pkgID, err := tools.ParseRepoURL(repoURL)
@@ -59,8 +61,16 @@ func main() {
 			}
 			output.PrintVerboseComplete("Parse repository URL", pkgID)
 
+			// Prepare options if tag prefix is specified
+			var options *github.ReleaseOptions
+			if packageType != "" {
+				options = &github.ReleaseOptions{
+					TagPrefix: packageType,
+				}
+			}
+
 			output.PrintVerboseStart("Installing package", pkgID)
-			if err := pm.Install(pkgID, release); err != nil {
+			if err := pm.InstallWithOptions(pkgID, release, options); err != nil {
 				output.PrintVerboseError("Install package", err)
 				return fmt.Errorf("error installing package: %v", err)
 			}
@@ -70,6 +80,7 @@ func main() {
 		},
 	}
 	installCmd.Flags().StringP("release", "r", "", "Specify a release version to install")
+	installCmd.Flags().StringP("tag-prefix", "t", "", "Specify tag prefix for package variants (e.g., \"auth-\" for auth-v1.0.0 tags)")
 	rootCmd.AddCommand(installCmd)
 
 	// List command

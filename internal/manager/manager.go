@@ -24,6 +24,7 @@ type PackageMetadata struct {
 	InstallType    string `json:"install_type"`              // "deb" or "binary"
 	OriginalName   string `json:"original_name,omitempty"`   // Original asset filename
 	ChosenAsset    string `json:"chosen_asset,omitempty"`
+	TagPrefix      string `json:"tag_prefix,omitempty"`      // Tag prefix for filtering (e.g., "auth-", "photos-")
 }
 
 type PackageManagerMetadata struct {

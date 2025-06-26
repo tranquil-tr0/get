@@ -11,6 +11,10 @@ import (
 	"github.com/google/go-github/v66/github"
 )
 
+type ReleaseOptions struct {
+	TagPrefix string // Filter releases by tag prefix (e.g., "auth-", "photos-")
+}
+
 type Client struct {
 	client *github.Client
 	ctx    context.Context
@@ -49,7 +53,15 @@ func (c *Client) GetLatestRelease(pkgID string) (*Release, error) {
 	return c.GetReleaseByTag(pkgID, "latest")
 }
 
+func (c *Client) GetLatestReleaseWithOptions(pkgID string, options *ReleaseOptions) (*Release, error) {
+	return c.GetReleaseByTagWithOptions(pkgID, "latest", options)
+}
+
 func (c *Client) GetReleaseByTag(pkgID, tag string) (*Release, error) {
+	return c.GetReleaseByTagWithOptions(pkgID, tag, nil)
+}
+
+func (c *Client) GetReleaseByTagWithOptions(pkgID, tag string, options *ReleaseOptions) (*Release, error) {
 	// Parse owner and repo from pkgID (format: owner/repo)
 	parts := strings.Split(pkgID, "/")
 	if len(parts) != 2 {
@@ -61,8 +73,13 @@ func (c *Client) GetReleaseByTag(pkgID, tag string) (*Release, error) {
 	var err error
 
 	if tag == "latest" {
-		// Get the latest release
-		githubRelease, _, err = c.client.Repositories.GetLatestRelease(c.ctx, owner, repo)
+		if options != nil && options.TagPrefix != "" {
+			// Get latest release with tag prefix filtering
+			githubRelease, err = c.getLatestReleaseWithPrefix(owner, repo, options.TagPrefix)
+		} else {
+			// Get the latest release
+			githubRelease, _, err = c.client.Repositories.GetLatestRelease(c.ctx, owner, repo)
+		}
 	} else {
 		// Get release by tag
 		githubRelease, _, err = c.client.Repositories.GetReleaseByTag(c.ctx, owner, repo, tag)
@@ -145,8 +162,33 @@ func (r *Release) GetAllInstallableAssets() ([]Asset, []Asset) {
 	return r.FindDebPackages(), r.FindBinaryAssets()
 }
 
+// getLatestReleaseWithPrefix finds the latest release with a specific tag prefix
+func (c *Client) getLatestReleaseWithPrefix(owner, repo, tagPrefix string) (*github.RepositoryRelease, error) {
+	// List all releases to find the latest one with the specified prefix
+	releases, _, err := c.client.Repositories.ListReleases(c.ctx, owner, repo, &github.ListOptions{
+		PerPage: 100, // Get more releases to ensure we find the latest with prefix
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list releases: %v", err)
+	}
+
+	// Find the latest release with the specified tag prefix
+	for _, release := range releases {
+		tagName := release.GetTagName()
+		if strings.HasPrefix(tagName, tagPrefix) {
+			return release, nil
+		}
+	}
+
+	return nil, fmt.Errorf("no releases found with tag prefix \"%s\"", tagPrefix)
+}
+
 func (c *Client) GetLatestVersionName(pkgID string) (string, error) {
-	release, err := c.GetLatestRelease(pkgID)
+	return c.GetLatestVersionNameWithOptions(pkgID, nil)
+}
+
+func (c *Client) GetLatestVersionNameWithOptions(pkgID string, options *ReleaseOptions) (string, error) {
+	release, err := c.GetLatestReleaseWithOptions(pkgID, options)
 	if err != nil {
 		return "", fmt.Errorf("failed to get latest release: %v", err)
 	}

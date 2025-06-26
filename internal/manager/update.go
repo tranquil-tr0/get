@@ -5,18 +5,11 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/tranquil-tr0/get/internal/github"
 	"github.com/tranquil-tr0/get/internal/output"
 )
 
 func (pm *PackageManager) UpdateAllPackages() error {
-	//IMPLEMENTATION:
-	/*
-		1. Form the loop by loading get metadata using manager.go to look for list of installed packages
-		2. For each installed package (loop):
-			1. Call UpdatePackageOrReturnVersions(), print error if any, and print available update with package name, current version, and latest version if (current version != latest version)
-		3. Check metadata for duplicate pending updates, and remove if there are any
-		In conlusion, all available updates will be listed as pending updates in the metadata, and listed for the user.
-	*/
 
 	// Load metadata to get list of installed packages
 	output.PrintVerboseStart("Loading package metadata for update check")
@@ -115,9 +108,20 @@ func (pm *PackageManager) UpdatePackageAndReturnNewVersion(pkgID string) (hasNew
 		return hasNewUpdate, "", fmt.Errorf("failed to parse current version: %v", err)
 	}
 
-	// Call GetLatestVersionNumber from client
+	// Call GetLatestVersionNumber from client, using TagPrefix if available
 	output.PrintVerboseStart("Fetching latest version from GitHub", pkgID)
-	latestVersionString, err = pm.GithubClient.GetLatestVersionName(pkgID)
+	var options *github.ReleaseOptions
+	if pkg.TagPrefix != "" {
+		options = &github.ReleaseOptions{
+			TagPrefix: pkg.TagPrefix,
+		}
+	}
+	
+	if options != nil {
+		latestVersionString, err = pm.GithubClient.GetLatestVersionNameWithOptions(pkgID, options)
+	} else {
+		latestVersionString, err = pm.GithubClient.GetLatestVersionName(pkgID)
+	}
 	if err != nil {
 		output.PrintVerboseError("Fetch latest version", err)
 		return hasNewUpdate, "", fmt.Errorf("failed to get latest version: %v", err)
@@ -137,7 +141,12 @@ func (pm *PackageManager) UpdatePackageAndReturnNewVersion(pkgID string) (hasNew
 	output.PrintVerboseDebug("VERSION", "Comparing versions: current=%d, latest=%d", currentVersion, latestVersionInt)
 	if latestVersionInt > currentVersion {
 		output.PrintVerboseStart("Checking latest release for .deb package", pkgID)
-		latestRelease, err := pm.GithubClient.GetLatestRelease(pkgID)
+		var latestRelease *github.Release
+		if options != nil {
+			latestRelease, err = pm.GithubClient.GetLatestReleaseWithOptions(pkgID, options)
+		} else {
+			latestRelease, err = pm.GithubClient.GetLatestRelease(pkgID)
+		}
 		if err != nil {
 			output.PrintVerboseError("Fetch latest release", err)
 			return hasNewUpdate, latestVersionString, fmt.Errorf("failed to get latest release: %v", err)

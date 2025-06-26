@@ -85,18 +85,27 @@ func (pm *PackageManager) UpgradeSpecificPackage(pkgID string) error {
 	}
 	output.PrintVerboseComplete("Get pending update version", pendingReleaseVersion)
 
-	// Get new release
-	release, err := pm.GithubClient.GetReleaseByTag(pkgID, pendingReleaseVersion)
-	if err != nil {
-		return err
-	}
-
-	// Get saved asset choice
+	// Get new release, using TagPrefix if available
 	metadata, err := pm.GetPackageManagerMetadata()
 	if err != nil {
 		return err
 	}
 	pkgMetadata := metadata.Packages[pkgID]
+	
+	var release *github.Release
+	if pkgMetadata.TagPrefix != "" {
+		options := &github.ReleaseOptions{
+			TagPrefix: pkgMetadata.TagPrefix,
+		}
+		release, err = pm.GithubClient.GetReleaseByTagWithOptions(pkgID, pendingReleaseVersion, options)
+	} else {
+		release, err = pm.GithubClient.GetReleaseByTag(pkgID, pendingReleaseVersion)
+	}
+	if err != nil {
+		return err
+	}
+
+	// Get saved asset choice (metadata and pkgMetadata already available from above)
 	savedAsset := pkgMetadata.ChosenAsset
 
 	// Check if saved asset is available in the new release
