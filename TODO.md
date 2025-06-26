@@ -1,6 +1,6 @@
 - support prereleases
 - better install logs
-- support direct links to autoupdating files like beeper
+- support direct links to autoupdating files like beeper and discord
 - consider supporting zips
 - replace tag name prefix filtering with tag name regex filtering instead
 - improve same file recognition
