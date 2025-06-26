@@ -91,15 +91,47 @@ func (pm *PackageManager) SelectAssetInteractively(release *github.Release) (*gi
 	return &selectedAsset, selectedType, nil
 }
 
-func (pm *PackageManager) InstallRelease(pkgID string, release *github.Release) error {
-	// Interactive asset selection
-	output.PrintVerboseStart("Selecting asset for installation", release.TagName)
-	selectedAsset, installType, err := pm.SelectAssetInteractively(release)
-	if err != nil {
-		output.PrintVerboseError("Select asset", err)
-		return fmt.Errorf("failed to select asset: %v", err)
+func (pm *PackageManager) InstallRelease(pkgID string, release *github.Release, preSelectedAsset *github.Asset) error {
+	var selectedAsset *github.Asset
+	var installType string
+	var err error
+
+	if preSelectedAsset != nil {
+		selectedAsset = preSelectedAsset
+		// Determine installType based on asset name or other properties if needed
+		if strings.HasSuffix(selectedAsset.Name, ".deb") {
+			installType = "deb"
+		} else {
+			installType = "binary"
+		}
+		output.PrintVerboseComplete("Using pre-selected asset", fmt.Sprintf("%s (%s)", selectedAsset.Name, installType))
+	} else {
+		// Interactive asset selection
+		output.PrintVerboseStart("Selecting asset for installation", release.TagName)
+		selectedAsset, installType, err = pm.SelectAssetInteractively(release)
+		if err != nil {
+			output.PrintVerboseError("Select asset", err)
+			return fmt.Errorf("failed to select asset: %v", err)
+		}
+		output.PrintVerboseComplete("Select asset", fmt.Sprintf("%s (%s)", selectedAsset.Name, installType))
 	}
-	output.PrintVerboseComplete("Select asset", fmt.Sprintf("%s (%s)", selectedAsset.Name, installType))
+
+	if preSelectedAsset == nil {
+		// Save chosen asset
+		metadata, metaErr := pm.GetPackageManagerMetadata()
+		if metaErr != nil {
+			output.PrintVerboseError("Load package metadata", metaErr)
+			return metaErr
+		}
+		pkgMetadata := metadata.Packages[pkgID]
+		pkgMetadata.ChosenAsset = selectedAsset.Name
+		metadata.Packages[pkgID] = pkgMetadata
+		if err := pm.WritePackageManagerMetadata(metadata); err != nil {
+			output.PrintVerboseError("Write package metadata", err)
+			return err
+		}
+		output.PrintVerboseComplete("Saved chosen asset as ", selectedAsset.Name)
+	}
 
 	// Route to appropriate installation method
 	switch installType {
@@ -329,11 +361,11 @@ func (pm *PackageManager) Install(pkgID string, version string) error {
 	output.PrintVerboseComplete("Fetch GitHub release", release.TagName)
 
 	// install the package with a call to InstallRelease, and returns error
-	return pm.InstallRelease(pkgID, release)
+	return pm.InstallRelease(pkgID, release, nil)
 }
 
 // InstallVersion does InstallRelease after fetching the release based on version
-func (pm *PackageManager) InstallVersion(pkgID string, version string) error {
+func (pm *PackageManager) InstallVersion(pkgID string, version string, chosenAsset *github.Asset) error {
 	// get the Release
 	output.PrintVerboseStart("Fetching specific release for installation", fmt.Sprintf("%s@%s", pkgID, version))
 	release, err := pm.GithubClient.GetReleaseByTag(pkgID, version)
@@ -344,7 +376,7 @@ func (pm *PackageManager) InstallVersion(pkgID string, version string) error {
 	output.PrintVerboseComplete("Fetch GitHub release", release.TagName)
 
 	// install the package with a call to InstallRelease, and returns error
-	return pm.InstallRelease(pkgID, release)
+	return pm.InstallRelease(pkgID, release, chosenAsset)
 }
 
 // ValidateDebPackage validates a .deb package before installation

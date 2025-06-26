@@ -1,10 +1,14 @@
 package manager
 
 import (
+	"bufio"
 	"fmt"
+	"os"
 	"strings"
 
+	"github.com/tranquil-tr0/get/internal/github"
 	"github.com/tranquil-tr0/get/internal/output"
+	"github.com/tranquil-tr0/get/internal/tools"
 )
 
 func (pm *PackageManager) UpgradeAllPackages() error {
@@ -67,46 +71,80 @@ func (pm *PackageManager) UpgradeAllPackages() error {
 }
 
 func (pm *PackageManager) UpgradeSpecificPackage(pkgID string) error {
-	// IMPLEMENTATION:
-	/*
-		1. If there are pending updates for the package identified by pkgID,
-			1. call Install() in install.go to install the latest version of the package
-			2. remove the package from pending updates in metadata
-	*/
-
 	// get the pending update version
 	output.PrintVerboseStart("Getting pending update version", pkgID)
-	pendingRelease, err := pm.GetPendingUpdate(pkgID)
+	pendingReleaseVersion, err := pm.GetPendingUpdate(pkgID)
 	if err != nil {
 		output.PrintVerboseError("Get pending update version", err)
 		return fmt.Errorf("failed checking for pending updates: %s", err)
 	}
 
-	if pendingRelease == "" {
+	if pendingReleaseVersion == "" {
 		output.PrintVerboseError("Get pending update version", fmt.Errorf("no pending update found"))
 		return fmt.Errorf("no pending update found for package: %s", pkgID)
 	}
-	output.PrintVerboseComplete("Get pending update version", pendingRelease)
+	output.PrintVerboseComplete("Get pending update version", pendingReleaseVersion)
 
-	// Parse owner and repo from pkgID (format: owner/repo)
-	output.PrintVerboseDebug("UPGRADE", "Validating package ID format: %s", pkgID)
-	parts := strings.Split(pkgID, "/")
-	if len(parts) != 2 {
-		output.PrintVerboseError("Validate package ID", fmt.Errorf("invalid format: %s", pkgID))
-		return fmt.Errorf("invalid package ID format: %s", pkgID)
+	// Get new release
+	release, err := pm.GithubClient.GetReleaseByTag(pkgID, pendingReleaseVersion)
+	if err != nil {
+		return err
 	}
 
-	// Call InstallVersion() to install the specified version of the package
-	// Note: InstallVersion calls InstallRelease which already removes the package from pending updates
-	output.PrintVerboseStart("Installing updated version", fmt.Sprintf("%s@%s", pkgID, pendingRelease))
-	if err := pm.InstallVersion(pkgID, pendingRelease); err != nil {
-		output.PrintVerboseError("Install updated version", err)
-		return fmt.Errorf("failed to install update for %s: %v", pkgID, err)
+	// Get saved asset choice
+	metadata, err := pm.GetPackageManagerMetadata()
+	if err != nil {
+		return err
 	}
-	output.PrintVerboseComplete("Install updated version", fmt.Sprintf("%s@%s", pkgID, pendingRelease))
+	pkgMetadata := metadata.Packages[pkgID]
+	savedAsset := pkgMetadata.ChosenAsset
 
-	// No need to manually remove from pending updates since InstallRelease already handles this
-	output.PrintVerboseDebug("UPGRADE", "Package upgrade completed successfully")
+	// Check if saved asset is available in the new release
+	var chosenAsset *github.Asset
+	if savedAsset != "" {
+		for i, asset := range release.Assets {
+			similar, err := tools.AreAssetNamesSimilar(savedAsset, asset.Name)
+			if err != nil {
+				output.PrintVerboseError("Asset similarity check", err)
+			}
+			if similar {
+				chosenAsset = &release.Assets[i]
+				break
+			}
+		}
+	}
 
-	return nil
+	// Prompt user if necessary
+	if chosenAsset != nil {
+		if !pm.Yes {
+			fmt.Printf("Select %s as install asset? [Y/n]: ", chosenAsset.Name)
+			scanner := bufio.NewScanner(os.Stdin)
+			scanner.Scan()
+			input := strings.TrimSpace(scanner.Text())
+			if strings.ToLower(input) == "n" {
+				chosenAsset = nil
+			}
+		}
+	} else {
+		fmt.Println("Saved asset not found in new release. Please select a new asset.")
+		selectedAsset, _, err := pm.SelectAssetInteractively(release)
+		if err != nil {
+			return err
+		}
+		chosenAsset = selectedAsset
+	}
+
+	if chosenAsset == nil {
+		return fmt.Errorf("no asset selected for installation")
+	}
+
+	// Save chosen asset
+	pkgMetadata.ChosenAsset = chosenAsset.Name
+	metadata.Packages[pkgID] = pkgMetadata
+	if err := pm.WritePackageManagerMetadata(metadata); err != nil {
+		return err
+	}
+
+	// Install the chosen asset
+	return pm.InstallVersion(pkgID, pendingReleaseVersion, chosenAsset)
 }

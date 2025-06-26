@@ -2,6 +2,7 @@ package tools
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 )
 
@@ -19,4 +20,14 @@ func ParseRepoURL(url string) (pkgID string, err error) {
 
 	return pkgID, nil
 
+}
+
+func AreAssetNamesSimilar(name1, name2 string) (bool, error) {
+	re, err := regexp.Compile(`v[0-9]+\.[0-9]+\.[0-9]+`)
+	if err != nil {
+		return false, err
+	}
+	name1 = re.ReplaceAllString(name1, "")
+	name2 = re.ReplaceAllString(name2, "")
+	return name1 == name2, nil
 }

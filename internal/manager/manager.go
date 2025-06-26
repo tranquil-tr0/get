@@ -13,6 +13,7 @@ type PackageManager struct {
 	MetadataPath string
 	GithubClient *github.Client
 	Verbose      bool
+	Yes          bool
 }
 
 type PackageMetadata struct {
@@ -22,6 +23,7 @@ type PackageMetadata struct {
 	BinaryPath     string `json:"binary_path,omitempty"`     // For binary installations
 	InstallType    string `json:"install_type"`              // "deb" or "binary"
 	OriginalName   string `json:"original_name,omitempty"`   // Original asset filename
+	ChosenAsset    string `json:"chosen_asset,omitempty"`
 }
 
 type PackageManagerMetadata struct {
@@ -34,6 +36,7 @@ func NewPackageManager(metadataPath string) *PackageManager {
 	return &PackageManager{
 		MetadataPath: metadataPath,
 		GithubClient: github.NewClient(),
+		Yes:					false,
 	}
 }
 

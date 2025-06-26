@@ -143,6 +143,11 @@ func main() {
 		Short: "Apply staged upgrades",
 		Long:  "Install available updates for packages",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			yes, _ := cmd.Flags().GetBool("yes")
+			if yes {
+				pm.Yes = true
+			}
+
 			output.PrintAction("Upgrading packages...")
 			output.PrintVerboseStart("Upgrading packages")
 			if err := pm.UpgradeAllPackages(); err != nil {
@@ -154,6 +159,7 @@ func main() {
 			return nil
 		},
 	}
+	upgradeCmd.Flags().BoolP("yes", "y", false, "Skip interactive prompts and use saved asset choices")
 	rootCmd.AddCommand(upgradeCmd)
 
 	// Update-upgrade command (with alias)
