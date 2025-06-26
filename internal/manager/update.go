@@ -143,14 +143,18 @@ func (pm *PackageManager) UpdatePackageAndReturnNewVersion(pkgID string) (hasNew
 			return hasNewUpdate, latestVersionString, fmt.Errorf("failed to get latest release: %v", err)
 		}
 
-		// Check if the latest release has a .deb file
-		debPackage := latestRelease.FindDebPackage()
-		if debPackage == nil {
-			// No .deb file in the latest release
-			output.PrintVerboseError("Find .deb package", fmt.Errorf("no .deb file in latest release"))
-			return hasNewUpdate, latestVersionString, fmt.Errorf("latest release does not contain a .deb file")
+		// Check if the latest release has a .deb file, only if the install type is "deb"
+		if pkg.InstallType == "deb" {
+			debPackage := latestRelease.FindDebPackage()
+			if debPackage == nil {
+				// No .deb file in the latest release
+				output.PrintVerboseError("Find .deb package", fmt.Errorf("no .deb file in latest release"))
+				return hasNewUpdate, latestVersionString, fmt.Errorf("latest release does not contain a .deb file")
+			}
+			output.PrintVerboseComplete("Check latest release for .deb package", debPackage.Name)
+		} else {
+			output.PrintVerboseDebug("UPDATE", "Skipping .deb check for non-deb package type: %s", pkg.InstallType)
 		}
-		output.PrintVerboseComplete("Check latest release for .deb package", debPackage.Name)
 
 		// Check if a pending update is already listed for this package
 		output.PrintVerboseStart("Checking for existing pending update", pkgID)
@@ -161,10 +165,10 @@ func (pm *PackageManager) UpdatePackageAndReturnNewVersion(pkgID string) (hasNew
 		}
 
 		if updateVersion == "" { // if there is no pending update, (if it is a new update)
-			output.PrintVerboseDebug("UPDATE", "Adding new pending update: %s -> %s", pkg.Version, latestVersionString)
+			output.PrintVerboseDebug("UPDATE", "Adding new pending update: %s -> %s (tag: %s)", pkg.Version, latestVersionString, latestRelease.TagName)
 			hasNewUpdate = true
-			// Add the pending update to metadata
-			metadata.PendingUpdates[pkgID] = latestVersionString
+			// Add the pending update to metadata - store the original tag name, not the normalized version
+			metadata.PendingUpdates[pkgID] = latestRelease.TagName
 			// Actually save the metadata
 			output.PrintVerboseStart("Saving pending update to metadata")
 			if err := pm.WritePackageManagerMetadata(metadata); err != nil {
