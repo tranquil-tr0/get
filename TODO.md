@@ -1,5 +1,5 @@
 - support prereleases
-- support binaries (non deb formats)
 - better install logs
 - support direct links to autoupdating files like beeper
 - consider supporting zips
+- replace tag name prefix filtering with tag name regex filtering instead
