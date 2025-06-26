@@ -3,3 +3,6 @@
 - support direct links to autoupdating files like beeper
 - consider supporting zips
 - replace tag name prefix filtering with tag name regex filtering instead
+- improve same file recognition
+- allow upgrade just one package
+- mark packages
