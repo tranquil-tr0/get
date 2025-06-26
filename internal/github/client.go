@@ -114,31 +114,29 @@ func (r *Release) FindDebPackages() []Asset {
 // FindBinaryAssets returns assets that are likely Linux executables based on common patterns
 func (r *Release) FindBinaryAssets() []Asset {
 	var binaries []Asset
-	
+
 	// Extensions that are NOT binaries
 	nonBinaryExts := []string{
 		".deb", ".rpm", ".tar.gz", ".tgz", ".zip", ".tar.bz2", ".tar.xz",
 		".txt", ".md", ".json", ".yaml", ".yml", ".xml", ".html",
 		".sig", ".asc", ".sha256", ".sha512", ".checksum", ".exe", ".dll",
 	}
-	
+
 	for _, asset := range r.Assets {
 		name := strings.ToLower(asset.Name)
-		
-		// Skip if it has a non-binary extension
-		isBinary := true
+		isNonBinary := false
 		for _, ext := range nonBinaryExts {
 			if strings.HasSuffix(name, ext) {
-				isBinary = false
+				isNonBinary = true
 				break
 			}
 		}
-		
-		if !isBinary {
-			continue
+
+		if !isNonBinary {
+			binaries = append(binaries, asset)
 		}
 	}
-	
+
 	return binaries
 }
 
