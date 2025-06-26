@@ -117,7 +117,7 @@ func (pm *PackageManager) UpgradeSpecificPackage(pkgID string) error {
 	// Prompt user if necessary
 	if chosenAsset != nil {
 		if !pm.Yes {
-			fmt.Printf("Select %s as install asset? [Y/n]: ", chosenAsset.Name)
+			fmt.Printf("Select \"%s\" as install asset? [Y/n]: ", chosenAsset.Name)
 			scanner := bufio.NewScanner(os.Stdin)
 			scanner.Scan()
 			input := strings.TrimSpace(scanner.Text())
