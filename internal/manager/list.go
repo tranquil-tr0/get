@@ -37,13 +37,39 @@ func (pm *PackageManager) PrintInstalledPackages() error {
 			owner, repo = pkgID, ""
 			output.PrintVerboseDebug("LIST", "Warning: package ID format unusual: %s", pkgID)
 		}
+		
 		output.PrintNormal(" %s/%s (Version: %s, Installed: %s)", output.Bold(owner), output.Bold(repo), pkg.Version, pkg.InstalledAt)
-		if pkg.AptName != "" {
-			output.PrintGreen("   └APT Package Name: %s", pkg.AptName)
-			output.PrintVerboseDebug("LIST", "APT package name: %s", pkg.AptName)
-		} else {
-			output.PrintVerboseDebug("LIST", "Warning: no APT package name for %s", pkgID)
+		
+		// Display installation type and details
+		switch pkg.InstallType {
+		case "deb":
+			output.PrintGreen("   └Type: .deb package")
+			if pkg.AptName != "" {
+				output.PrintGreen("   └APT Package Name: %s", pkg.AptName)
+				output.PrintVerboseDebug("LIST", "APT package name: %s", pkg.AptName)
+			}
+		case "binary":
+			output.PrintYellow("   └Type: Binary executable")
+			if pkg.BinaryPath != "" {
+				output.PrintYellow("   └Binary Path: %s", pkg.BinaryPath)
+				output.PrintVerboseDebug("LIST", "Binary path: %s", pkg.BinaryPath)
+			}
+		default:
+			// Legacy packages without InstallType - assume .deb
+			output.PrintGreen("   └Type: .deb package (legacy)")
+			if pkg.AptName != "" {
+				output.PrintGreen("   └APT Package Name: %s", pkg.AptName)
+				output.PrintVerboseDebug("LIST", "APT package name: %s", pkg.AptName)
+			} else {
+				output.PrintVerboseDebug("LIST", "Warning: no APT package name for legacy package %s", pkgID)
+			}
 		}
+		
+		// Show original asset name if available
+		if pkg.OriginalName != "" {
+			output.PrintNormal("   └Original Asset: %s", pkg.OriginalName)
+		}
+		
 		output.PrintNormal("")
 	}
 	output.PrintVerboseComplete("Format package list display")

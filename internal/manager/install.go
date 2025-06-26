@@ -1,33 +1,122 @@
-/*
- * TODO: if more than one deb package do interactive prompt, best implemented in Install()
- */
 package manager
 
 import (
+	"bufio"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/tranquil-tr0/get/internal/github"
 	"github.com/tranquil-tr0/get/internal/output"
 )
 
-func (pm *PackageManager) InstallRelease(pkgID string, release *github.Release) error {
-	output.PrintVerboseStart("Finding .deb package in release", release.TagName)
-	debPackage := release.FindDebPackage()
-	if debPackage == nil {
-		output.PrintVerboseError("Find .deb package", fmt.Errorf("no .deb package found"))
-		return fmt.Errorf("no .deb package found in release")
+// SelectAssetInteractively prompts the user to select which asset to install
+func (pm *PackageManager) SelectAssetInteractively(release *github.Release) (*github.Asset, string, error) {
+	debPackages := release.FindDebPackages()
+	binaryAssets := release.FindBinaryAssets()
+	
+	fmt.Printf("\nAvailable assets in release %s:\n", release.TagName)
+	
+	var allAssets []github.Asset
+	var assetTypes []string
+	
+	// Add .deb packages
+	for _, asset := range debPackages {
+		allAssets = append(allAssets, asset)
+		assetTypes = append(assetTypes, "deb")
+		fmt.Printf("  [%d] %s (.deb package)\n", len(allAssets), asset.Name)
 	}
-	output.PrintVerboseComplete("Find .deb package", debPackage.Name)
+	
+	// Add binary assets
+	for _, asset := range binaryAssets {
+		allAssets = append(allAssets, asset)
+		assetTypes = append(assetTypes, "binary")
+		fmt.Printf("  [%d] %s (binary executable)\n", len(allAssets), asset.Name)
+	}
+	
+	// Add option to specify other file as executable
+	fmt.Printf("  [%d] Other file (specify as executable)\n", len(allAssets)+1)
+	
+	if len(allAssets) == 0 {
+		fmt.Println("\nNo .deb packages or likely binary executables found.")
+		fmt.Println("Available assets:")
+		for _, asset := range release.Assets {
+			fmt.Printf("  - %s\n", asset.Name)
+		}
+	}
+	
+	fmt.Print("\nSelect an option (number): ")
+	
+	scanner := bufio.NewScanner(os.Stdin)
+	scanner.Scan()
+	input := strings.TrimSpace(scanner.Text())
+	
+	choice, err := strconv.Atoi(input)
+	if err != nil {
+		return nil, "", fmt.Errorf("invalid selection: %s", input)
+	}
+	
+	// Handle "Other file" option
+	if choice == len(allAssets)+1 {
+		fmt.Println("\nAvailable assets:")
+		for i, asset := range release.Assets {
+			fmt.Printf("  [%d] %s\n", i+1, asset.Name)
+		}
+		fmt.Print("Select asset number: ")
+		
+		scanner.Scan()
+		otherInput := strings.TrimSpace(scanner.Text())
+		otherChoice, err := strconv.Atoi(otherInput)
+		if err != nil || otherChoice < 1 || otherChoice > len(release.Assets) {
+			return nil, "", fmt.Errorf("invalid asset selection: %s", otherInput)
+		}
+		
+		selectedAsset := release.Assets[otherChoice-1]
+		return &selectedAsset, "binary", nil
+	}
+	
+	// Validate choice
+	if choice < 1 || choice > len(allAssets) {
+		return nil, "", fmt.Errorf("invalid selection: %d (must be between 1 and %d)", choice, len(allAssets))
+	}
+	
+	selectedAsset := allAssets[choice-1]
+	selectedType := assetTypes[choice-1]
+	
+	return &selectedAsset, selectedType, nil
+}
 
+func (pm *PackageManager) InstallRelease(pkgID string, release *github.Release) error {
+	// Interactive asset selection
+	output.PrintVerboseStart("Selecting asset for installation", release.TagName)
+	selectedAsset, installType, err := pm.SelectAssetInteractively(release)
+	if err != nil {
+		output.PrintVerboseError("Select asset", err)
+		return fmt.Errorf("failed to select asset: %v", err)
+	}
+	output.PrintVerboseComplete("Select asset", fmt.Sprintf("%s (%s)", selectedAsset.Name, installType))
+
+	// Route to appropriate installation method
+	switch installType {
+	case "deb":
+		return pm.InstallDebPackage(pkgID, release, selectedAsset)
+	case "binary":
+		return pm.InstallBinary(pkgID, release, selectedAsset)
+	default:
+		return fmt.Errorf("unsupported installation type: %s", installType)
+	}
+}
+
+// InstallDebPackage handles .deb package installation
+func (pm *PackageManager) InstallDebPackage(pkgID string, release *github.Release, debAsset *github.Asset) error {
 	// Download package
-	output.PrintVerboseStart("Downloading package", debPackage.BrowserDownloadURL)
-	resp, httpErr := http.Get(debPackage.BrowserDownloadURL)
+	output.PrintVerboseStart("Downloading .deb package", debAsset.BrowserDownloadURL)
+	resp, httpErr := http.Get(debAsset.BrowserDownloadURL)
 	if httpErr != nil {
 		output.PrintVerboseError("Download package", httpErr)
 		return fmt.Errorf("failed to download package: %v", httpErr)
@@ -35,7 +124,6 @@ func (pm *PackageManager) InstallRelease(pkgID string, release *github.Release) 
 	defer resp.Body.Close()
 	output.PrintVerboseDebug("HTTP", "Download response status: %s", resp.Status)
 
-	// FIXME: use system tempdir, not weird workaround
 	// Create temp directory
 	output.PrintVerboseStart("Creating temporary directory")
 	tempDir, tempErr := os.MkdirTemp("", "get-*")
@@ -47,7 +135,7 @@ func (pm *PackageManager) InstallRelease(pkgID string, release *github.Release) 
 	output.PrintVerboseComplete("Create temporary directory", tempDir)
 
 	// Save package
-	packagePath := filepath.Join(tempDir, debPackage.Name)
+	packagePath := filepath.Join(tempDir, debAsset.Name)
 	output.PrintVerboseStart("Saving package file", packagePath)
 	file, createErr := os.Create(packagePath)
 	if createErr != nil {
@@ -68,7 +156,7 @@ func (pm *PackageManager) InstallRelease(pkgID string, release *github.Release) 
 		return fmt.Errorf("package validation failed: %v", err)
 	}
 
-	// Install with dpkg (more direct than apt)
+	// Install with dpkg
 	fmt.Println("Installing with dpkg...")
 	output.PrintVerboseStart("Installing package with dpkg", packagePath)
 	cmd := exec.Command("sudo", "-p", "[get] Password required for package installation: ", "dpkg", "-i", packagePath)
@@ -97,7 +185,7 @@ func (pm *PackageManager) InstallRelease(pkgID string, release *github.Release) 
 	}
 	output.PrintVerboseComplete("Install package with dpkg")
 
-	// Extract package name using dpkg-deb (most reliable method)
+	// Extract package name using dpkg-deb
 	output.PrintVerboseStart("Extracting package name")
 	aptPackageName, nameErr := pm.GetPackageNameFromDeb(packagePath)
 	if nameErr != nil {
@@ -106,7 +194,6 @@ func (pm *PackageManager) InstallRelease(pkgID string, release *github.Release) 
 		debFilename := filepath.Base(packagePath)
 		if strings.HasSuffix(debFilename, ".deb") {
 			nameWithoutExt := strings.TrimSuffix(debFilename, ".deb")
-			// Common pattern: package-name_version_arch.deb
 			parts := strings.Split(nameWithoutExt, "_")
 			if len(parts) > 0 {
 				aptPackageName = parts[0]
@@ -120,48 +207,90 @@ func (pm *PackageManager) InstallRelease(pkgID string, release *github.Release) 
 	}
 	output.PrintVerboseComplete("Extract package name", aptPackageName)
 
-	// Update metadata - reload to avoid overwriting other changes
-	output.PrintVerboseStart("Updating package metadata")
-	metadata, metaErr := pm.GetPackageManagerMetadata()
-	if metaErr != nil {
-		output.PrintVerboseError("Load package metadata", metaErr)
-		return metaErr
+	// Update metadata
+	return pm.UpdatePackageMetadata(pkgID, release, PackageMetadata{
+		Version:      strings.TrimPrefix(release.TagName, "v"),
+		InstalledAt:  release.PublishedAt,
+		AptName:      aptPackageName,
+		InstallType:  "deb",
+		OriginalName: debAsset.Name,
+	})
+}
+
+// InstallBinary handles binary executable installation
+func (pm *PackageManager) InstallBinary(pkgID string, release *github.Release, binaryAsset *github.Asset) error {
+	// Download binary
+	output.PrintVerboseStart("Downloading binary", binaryAsset.BrowserDownloadURL)
+	resp, httpErr := http.Get(binaryAsset.BrowserDownloadURL)
+	if httpErr != nil {
+		output.PrintVerboseError("Download binary", httpErr)
+		return fmt.Errorf("failed to download binary: %v", httpErr)
+	}
+	defer resp.Body.Close()
+	output.PrintVerboseDebug("HTTP", "Download response status: %s", resp.Status)
+
+	// Create temp directory
+	output.PrintVerboseStart("Creating temporary directory")
+	tempDir, tempErr := os.MkdirTemp("", "get-*")
+	if tempErr != nil {
+		output.PrintVerboseError("Create temporary directory", tempErr)
+		return fmt.Errorf("failed to create temp directory: %v", tempErr)
+	}
+	defer os.RemoveAll(tempDir)
+	output.PrintVerboseComplete("Create temporary directory", tempDir)
+
+	// Save binary
+	tempBinaryPath := filepath.Join(tempDir, binaryAsset.Name)
+	output.PrintVerboseStart("Saving binary file", tempBinaryPath)
+	file, createErr := os.Create(tempBinaryPath)
+	if createErr != nil {
+		output.PrintVerboseError("Create binary file", createErr)
+		return fmt.Errorf("failed to create binary file: %v", createErr)
 	}
 
-	parts := strings.Split(pkgID, "/")
-	if len(parts) < 2 {
-		output.PrintVerboseError("Parse package ID", fmt.Errorf("invalid pkgID format: %s", pkgID))
-		return fmt.Errorf("failed to find owner and repo from pkgID: %s", pkgID)
+	if _, copyErr := io.Copy(file, resp.Body); copyErr != nil {
+		file.Close()
+		output.PrintVerboseError("Save binary file", copyErr)
+		return fmt.Errorf("failed to save binary file: %v", copyErr)
 	}
+	file.Close()
+	output.PrintVerboseComplete("Save binary file", tempBinaryPath)
 
-	normalizedVersion := strings.TrimPrefix(release.TagName, "v")
-	output.PrintVerboseDebug("METADATA", "Adding package: %s version %s", pkgID, normalizedVersion)
-	metadata.Packages[pkgID] = PackageMetadata{
-		Version:     normalizedVersion, // Normalize version
-		InstalledAt: release.PublishedAt,
-		AptName:     aptPackageName,
+	// Make binary executable
+	output.PrintVerboseStart("Making binary executable")
+	if err := os.Chmod(tempBinaryPath, 0755); err != nil {
+		output.PrintVerboseError("Make binary executable", err)
+		return fmt.Errorf("failed to make binary executable: %v", err)
 	}
+	output.PrintVerboseComplete("Make binary executable")
 
-	// Remove from pending updates if it exists
-	if _, hadUpdate := metadata.PendingUpdates[pkgID]; hadUpdate {
-		output.PrintVerboseDebug("METADATA", "Removing pending update for %s", pkgID)
-		delete(metadata.PendingUpdates, pkgID)
-	}
+	// Determine final binary name and path
+	binaryName := pm.GetBinaryName(pkgID, binaryAsset.Name)
+	finalBinaryPath := filepath.Join("/usr/local/bin", binaryName)
 
-	output.PrintVerboseStart("Writing package metadata to disk")
-	err := pm.WritePackageManagerMetadata(metadata)
-	if err != nil {
-		output.PrintVerboseError("Write package metadata", err)
-		// Attempt rollback if metadata write fails
-		output.PrintVerboseStart("Attempting rollback due to metadata write failure")
-		if rollbackErr := pm.RollbackInstallation(aptPackageName); rollbackErr != nil {
-			output.PrintVerboseError("Rollback installation", rollbackErr)
-			return fmt.Errorf("installation succeeded but metadata write failed, and rollback also failed: %v (rollback error: %v)", err, rollbackErr)
-		}
-		return fmt.Errorf("installation succeeded but metadata write failed (package was rolled back): %v", err)
+	// Install binary to /usr/local/bin
+	output.PrintVerboseStart("Installing binary to /usr/local/bin", finalBinaryPath)
+	cmd := exec.Command("sudo", "-p", "[get] Password required for binary installation: ", "cp", tempBinaryPath, finalBinaryPath)
+	output.PrintVerboseDebug("INSTALL", "Command: %v", cmd.Args)
+
+	cmdOutput, installErr := cmd.CombinedOutput()
+	if installErr != nil {
+		output.PrintVerboseError("Install binary", installErr)
+		output.PrintVerboseDebug("INSTALL", "Installation output: %s", string(cmdOutput))
+		return fmt.Errorf("failed to install binary: %v\nOutput: %s", installErr, cmdOutput)
 	}
-	output.PrintVerboseComplete("Update package metadata")
-	return nil
+	output.PrintVerboseComplete("Install binary to /usr/local/bin", finalBinaryPath)
+
+	fmt.Printf("Binary installed as: %s\n", binaryName)
+
+	// Update metadata
+	return pm.UpdatePackageMetadata(pkgID, release, PackageMetadata{
+		Version:      strings.TrimPrefix(release.TagName, "v"),
+		InstalledAt:  release.PublishedAt,
+		BinaryPath:   finalBinaryPath,
+		InstallType:  "binary",
+		OriginalName: binaryAsset.Name,
+	})
 }
 
 // Install does InstallRelease, but an additional version and already installed sanity check
@@ -282,5 +411,103 @@ func (pm *PackageManager) RollbackInstallation(packageName string) error {
 	}
 	
 	output.PrintVerboseComplete("Rollback installation", packageName)
+	return nil
+}
+
+// UpdatePackageMetadata updates the package metadata and handles rollback on failure
+func (pm *PackageManager) UpdatePackageMetadata(pkgID string, release *github.Release, pkgMetadata PackageMetadata) error {
+	output.PrintVerboseStart("Updating package metadata")
+	metadata, metaErr := pm.GetPackageManagerMetadata()
+	if metaErr != nil {
+		output.PrintVerboseError("Load package metadata", metaErr)
+		return metaErr
+	}
+
+	parts := strings.Split(pkgID, "/")
+	if len(parts) < 2 {
+		output.PrintVerboseError("Parse package ID", fmt.Errorf("invalid pkgID format: %s", pkgID))
+		return fmt.Errorf("failed to find owner and repo from pkgID: %s", pkgID)
+	}
+
+	output.PrintVerboseDebug("METADATA", "Adding package: %s version %s", pkgID, pkgMetadata.Version)
+	metadata.Packages[pkgID] = pkgMetadata
+
+	// Remove from pending updates if it exists
+	if _, hadUpdate := metadata.PendingUpdates[pkgID]; hadUpdate {
+		output.PrintVerboseDebug("METADATA", "Removing pending update for %s", pkgID)
+		delete(metadata.PendingUpdates, pkgID)
+	}
+
+	output.PrintVerboseStart("Writing package metadata to disk")
+	err := pm.WritePackageManagerMetadata(metadata)
+	if err != nil {
+		output.PrintVerboseError("Write package metadata", err)
+		// Attempt rollback if metadata write fails
+		output.PrintVerboseStart("Attempting rollback due to metadata write failure")
+		var rollbackErr error
+		if pkgMetadata.InstallType == "deb" {
+			rollbackErr = pm.RollbackInstallation(pkgMetadata.AptName)
+		} else if pkgMetadata.InstallType == "binary" {
+			rollbackErr = pm.RollbackBinaryInstallation(pkgMetadata.BinaryPath)
+		}
+		
+		if rollbackErr != nil {
+			output.PrintVerboseError("Rollback installation", rollbackErr)
+			return fmt.Errorf("installation succeeded but metadata write failed, and rollback also failed: %v (rollback error: %v)", err, rollbackErr)
+		}
+		return fmt.Errorf("installation succeeded but metadata write failed (package was rolled back): %v", err)
+	}
+	output.PrintVerboseComplete("Update package metadata")
+	return nil
+}
+
+// GetBinaryName determines the final binary name for installation
+func (pm *PackageManager) GetBinaryName(pkgID, originalName string) string {
+	parts := strings.Split(pkgID, "/")
+	if len(parts) >= 2 {
+		repoName := parts[1]
+		
+		// If the original name is just the repo name or similar, use it
+		baseName := filepath.Base(originalName)
+		
+		// Remove common suffixes that might indicate architecture/platform
+		suffixes := []string{"-linux", "-x86_64", "-amd64", "-gnu", ".exe"}
+		for _, suffix := range suffixes {
+			baseName = strings.TrimSuffix(baseName, suffix)
+		}
+		
+		// If the cleaned name is similar to repo name, prefer the original
+		if strings.Contains(strings.ToLower(baseName), strings.ToLower(repoName)) {
+			return baseName
+		}
+		
+		// Otherwise, use repo name
+		return repoName
+	}
+	
+	// Fallback to cleaned original name
+	baseName := filepath.Base(originalName)
+	suffixes := []string{"-linux", "-x86_64", "-amd64", "-gnu", ".exe"}
+	for _, suffix := range suffixes {
+		baseName = strings.TrimSuffix(baseName, suffix)
+	}
+	return baseName
+}
+
+// RollbackBinaryInstallation removes a binary installation
+func (pm *PackageManager) RollbackBinaryInstallation(binaryPath string) error {
+	output.PrintVerboseStart("Rolling back binary installation", binaryPath)
+	
+	cmd := exec.Command("sudo", "rm", "-f", binaryPath)
+	output.PrintVerboseDebug("ROLLBACK", "Binary rollback command: %v", cmd.Args)
+	
+	cmdOutput, err := cmd.CombinedOutput()
+	if err != nil {
+		output.PrintVerboseError("Rollback binary installation", err)
+		output.PrintVerboseDebug("ROLLBACK", "Rollback output: %s", string(cmdOutput))
+		return fmt.Errorf("binary rollback failed: %v", err)
+	}
+	
+	output.PrintVerboseComplete("Rollback binary installation", binaryPath)
 	return nil
 }

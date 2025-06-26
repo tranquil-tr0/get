@@ -100,6 +100,53 @@ func (r *Release) FindDebPackage() *Asset {
 	return nil
 }
 
+// FindDebPackages returns all .deb packages in the release
+func (r *Release) FindDebPackages() []Asset {
+	var debPackages []Asset
+	for _, asset := range r.Assets {
+		if strings.HasSuffix(asset.Name, ".deb") {
+			debPackages = append(debPackages, asset)
+		}
+	}
+	return debPackages
+}
+
+// FindBinaryAssets returns assets that are likely Linux executables based on common patterns
+func (r *Release) FindBinaryAssets() []Asset {
+	var binaries []Asset
+	
+	// Extensions that are NOT binaries
+	nonBinaryExts := []string{
+		".deb", ".rpm", ".tar.gz", ".tgz", ".zip", ".tar.bz2", ".tar.xz",
+		".txt", ".md", ".json", ".yaml", ".yml", ".xml", ".html",
+		".sig", ".asc", ".sha256", ".sha512", ".checksum", ".exe", ".dll",
+	}
+	
+	for _, asset := range r.Assets {
+		name := strings.ToLower(asset.Name)
+		
+		// Skip if it has a non-binary extension
+		isBinary := true
+		for _, ext := range nonBinaryExts {
+			if strings.HasSuffix(name, ext) {
+				isBinary = false
+				break
+			}
+		}
+		
+		if !isBinary {
+			continue
+		}
+	}
+	
+	return binaries
+}
+
+// GetAllInstallableAssets returns both .deb packages and potential binary assets
+func (r *Release) GetAllInstallableAssets() ([]Asset, []Asset) {
+	return r.FindDebPackages(), r.FindBinaryAssets()
+}
+
 func (c *Client) GetLatestVersionName(pkgID string) (string, error) {
 	release, err := c.GetLatestRelease(pkgID)
 	if err != nil {

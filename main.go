@@ -45,7 +45,7 @@ func main() {
 	installCmd := &cobra.Command{
 		Use:   "install <github-repo-url> (or <user>/<repo>)",
 		Short: "Install a package from GitHub",
-		Long:  "Install a package from a GitHub repository. The package must contain a .deb file in its latest release.",
+		Long:  "Install a package from a GitHub repository. Supports both .deb packages and binary executables. You will be prompted to select which asset to install.",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			repoURL := args[0]

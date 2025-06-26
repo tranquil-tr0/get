@@ -16,9 +16,12 @@ type PackageManager struct {
 }
 
 type PackageMetadata struct {
-	Version     string `json:"version"`
-	InstalledAt string `json:"installed_at"`
-	AptName     string `json:"apt_name"`
+	Version        string `json:"version"`
+	InstalledAt    string `json:"installed_at"`
+	AptName        string `json:"apt_name,omitempty"`        // For .deb packages
+	BinaryPath     string `json:"binary_path,omitempty"`     // For binary installations
+	InstallType    string `json:"install_type"`              // "deb" or "binary"
+	OriginalName   string `json:"original_name,omitempty"`   // Original asset filename
 }
 
 type PackageManagerMetadata struct {
