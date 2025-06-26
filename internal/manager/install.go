@@ -477,9 +477,10 @@ func (pm *PackageManager) UpdatePackageMetadata(pkgID string, release *github.Re
 		// Attempt rollback if metadata write fails
 		output.PrintVerboseStart("Attempting rollback due to metadata write failure")
 		var rollbackErr error
-		if pkgMetadata.InstallType == "deb" {
+		switch pkgMetadata.InstallType {
+case "deb":
 			rollbackErr = pm.RollbackInstallation(pkgMetadata.AptName)
-		} else if pkgMetadata.InstallType == "binary" {
+		case "binary":
 			rollbackErr = pm.RollbackBinaryInstallation(pkgMetadata.BinaryPath)
 		}
 		
