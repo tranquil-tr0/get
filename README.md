@@ -28,5 +28,7 @@ You can learn more about each command by running `--help` - for example:
 ## Contributing
 feel free to file issues and PRs
 
+![image](https://github.com/user-attachments/assets/87672626-1f60-4ec5-9358-b539b8a5d79c)
+
 ---
 built with go and conda
