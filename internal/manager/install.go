@@ -435,7 +435,6 @@ func (pm *PackageManager) ValidateDebPackage(packagePath string) error {
 func (pm *PackageManager) GetPackageNameFromDeb(packagePath string) (string, error) {
 	output.PrintVerboseStart("Extracting package name using dpkg-deb", packagePath)
 
-	// Use dpkg-deb to get package name reliably
 	cmd := exec.Command("dpkg-deb", "--field", packagePath, "Package")
 	output.PrintVerboseDebug("DPKG", "Package name extraction command: %v", cmd.Args)
 
