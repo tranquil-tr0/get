@@ -311,15 +311,69 @@ func (pm *PackageManager) InstallBinary(pkgID string, release *github.Release, b
 
 	// Install binary to /usr/local/bin
 	output.PrintVerboseStart("Installing binary to /usr/local/bin", finalBinaryPath)
+	
+	// Check if we're upgrading the 'get' binary itself (to avoid "Text file busy" error)
+	isSelfUpgrade := pkgID == "tranquil-tr0/get" && binaryName == "get"
+	
+	// Check if the binary already exists and we need special handling for self-upgrade
+	backupPath := finalBinaryPath + ".old"
+	binaryExists := false
+	if isSelfUpgrade {
+		if _, err := os.Stat(finalBinaryPath); err == nil {
+			binaryExists = true
+			output.PrintVerboseDebug("INSTALL", "Self-upgrade detected: existing 'get' binary found, will backup during installation")
+			
+			// First, move the existing binary to a backup location to avoid "Text file busy" error
+			output.PrintVerboseStart("Backing up existing binary for self-upgrade")
+			mvCmd := exec.Command("sudo", "-p", "[get] Password required for binary installation: ", "mv", finalBinaryPath, backupPath)
+			output.PrintVerboseDebug("INSTALL", "Backup command: %v", mvCmd.Args)
+			
+			mvOutput, mvErr := mvCmd.CombinedOutput()
+			if mvErr != nil {
+				output.PrintVerboseError("Backup existing binary", mvErr)
+				output.PrintVerboseDebug("INSTALL", "Backup output: %s", string(mvOutput))
+				return fmt.Errorf("failed to backup existing binary: %v\nOutput: %s", mvErr, mvOutput)
+			}
+			output.PrintVerboseComplete("Backup existing binary", backupPath)
+		}
+	}
+	
+	// Copy the new binary
 	cmd := exec.Command("sudo", "-p", "[get] Password required for binary installation: ", "cp", tempBinaryPath, finalBinaryPath)
-	output.PrintVerboseDebug("INSTALL", "Command: %v", cmd.Args)
+	output.PrintVerboseDebug("INSTALL", "Install command: %v", cmd.Args)
 
 	cmdOutput, installErr := cmd.CombinedOutput()
 	if installErr != nil {
 		output.PrintVerboseError("Install binary", installErr)
 		output.PrintVerboseDebug("INSTALL", "Installation output: %s", string(cmdOutput))
+		
+		// If installation failed and we had a backup (self-upgrade), try to restore it
+		if isSelfUpgrade && binaryExists {
+			output.PrintVerboseStart("Restoring backup due to installation failure")
+			restoreCmd := exec.Command("sudo", "mv", backupPath, finalBinaryPath)
+			if restoreErr := restoreCmd.Run(); restoreErr != nil {
+				output.PrintVerboseError("Restore backup", restoreErr)
+				return fmt.Errorf("failed to install binary and failed to restore backup: install error: %v, restore error: %v", installErr, restoreErr)
+			}
+			output.PrintVerboseComplete("Restore backup")
+		}
+		
 		return fmt.Errorf("failed to install binary: %v\nOutput: %s", installErr, cmdOutput)
 	}
+	
+	// Installation successful, clean up backup if it exists (self-upgrade only)
+	if isSelfUpgrade && binaryExists {
+		output.PrintVerboseStart("Cleaning up backup file")
+		rmCmd := exec.Command("sudo", "rm", backupPath)
+		if rmErr := rmCmd.Run(); rmErr != nil {
+			output.PrintVerboseError("Clean up backup", rmErr)
+			// Don't fail the installation if cleanup fails, just warn
+			fmt.Printf("Warning: Failed to clean up backup file %s: %v\n", backupPath, rmErr)
+		} else {
+			output.PrintVerboseComplete("Clean up backup file")
+		}
+	}
+	
 	output.PrintVerboseComplete("Install binary to /usr/local/bin", finalBinaryPath)
 
 	fmt.Printf("Binary installed as: %s\n", binaryName)
