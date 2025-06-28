@@ -29,14 +29,14 @@ func (pm *PackageManager) SelectAssetInteractively(release *github.Release) (*gi
 	for _, asset := range debPackages {
 		allAssets = append(allAssets, asset)
 		assetTypes = append(assetTypes, "deb")
-		fmt.Printf("  [%d] %s (.deb package)\n", len(allAssets), asset.Name)
+		fmt.Printf("  [%d] %s\n", len(allAssets), asset.Name)
 	}
 	
 	// Add binary assets
 	for _, asset := range binaryAssets {
 		allAssets = append(allAssets, asset)
 		assetTypes = append(assetTypes, "binary")
-		fmt.Printf("  [%d] %s (binary executable)\n", len(allAssets), asset.Name)
+		fmt.Printf("  [%d] %s\n", len(allAssets), asset.Name)
 	}
 	
 	// Add option to specify other file as executable
@@ -112,6 +112,7 @@ func (pm *PackageManager) InstallReleaseWithOptions(pkgID string, release *githu
 	} else {
 		// Interactive asset selection
 		output.PrintVerboseStart("Selecting asset for installation", release.TagName)
+		output.PrintAction("Please choose the correct asset to install. Your selection will be saved for future installations.")
 		selectedAsset, installType, err = pm.SelectAssetInteractively(release)
 		if err != nil {
 			output.PrintVerboseError("Select asset", err)
