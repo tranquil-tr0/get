@@ -152,6 +152,7 @@ func (pm *PackageManager) InstallReleaseWithOptions(pkgID string, release *githu
 // InstallDebPackage handles .deb package installation
 func (pm *PackageManager) InstallDebPackage(pkgID string, release *github.Release, debAsset *github.Asset, options *github.ReleaseOptions) error {
 	// Download package
+	output.PrintAction("Downloading package: %s", debAsset.Name)
 	output.PrintVerboseStart("Downloading .deb package", debAsset.BrowserDownloadURL)
 	resp, httpErr := http.Get(debAsset.BrowserDownloadURL)
 	if httpErr != nil {
@@ -194,7 +195,7 @@ func (pm *PackageManager) InstallDebPackage(pkgID string, release *github.Releas
 	}
 
 	// Install with dpkg
-	fmt.Println("Installing with dpkg...")
+	output.PrintAction("Installing .deb package with dpkg...")
 	output.PrintVerboseStart("Installing package with dpkg", packagePath)
 	cmd := exec.Command("sudo", "-p", "[get] Password required for package installation: ", "dpkg", "-i", packagePath)
 	output.PrintVerboseDebug("DPKG", "Command: %v", cmd.Args)
@@ -262,6 +263,7 @@ func (pm *PackageManager) InstallDebPackage(pkgID string, release *github.Releas
 // InstallBinary handles binary executable installation
 func (pm *PackageManager) InstallBinary(pkgID string, release *github.Release, binaryAsset *github.Asset, options *github.ReleaseOptions) error {
 	// Download binary
+	output.PrintAction("Downloading binary: %s", binaryAsset.Name)
 	output.PrintVerboseStart("Downloading binary", binaryAsset.BrowserDownloadURL)
 	resp, httpErr := http.Get(binaryAsset.BrowserDownloadURL)
 	if httpErr != nil {
@@ -311,6 +313,7 @@ func (pm *PackageManager) InstallBinary(pkgID string, release *github.Release, b
 	finalBinaryPath := filepath.Join("/usr/local/bin", binaryName)
 
 	// Install binary to /usr/local/bin
+	output.PrintAction("Installing binary to /usr/local/bin...")
 	output.PrintVerboseStart("Installing binary to /usr/local/bin", finalBinaryPath)
 	
 	// Check if we're upgrading the 'get' binary itself (to avoid "Text file busy" error)
@@ -377,7 +380,7 @@ func (pm *PackageManager) InstallBinary(pkgID string, release *github.Release, b
 	
 	output.PrintVerboseComplete("Install binary to /usr/local/bin", finalBinaryPath)
 
-	fmt.Printf("Binary installed as: %s\n", binaryName)
+	output.PrintSuccess("Binary installed as: %s", binaryName)
 
 	// Update metadata
 	tagPrefix := ""
@@ -421,6 +424,7 @@ func (pm *PackageManager) InstallWithOptions(pkgID string, version string, optio
 	var release *github.Release
 	var err error
 	if version == "" {
+		output.PrintAction("Fetching latest release from GitHub...")
 		output.PrintVerboseStart("Fetching latest release from GitHub", pkgID)
 		if options != nil {
 			release, err = pm.GithubClient.GetLatestReleaseWithOptions(pkgID, options)
@@ -428,6 +432,7 @@ func (pm *PackageManager) InstallWithOptions(pkgID string, version string, optio
 			release, err = pm.GithubClient.GetLatestRelease(pkgID)
 		}
 	} else {
+		output.PrintAction("Fetching release %s from GitHub...", version)
 		output.PrintVerboseStart("Fetching specific release from GitHub", fmt.Sprintf("%s@%s", pkgID, version))
 		if options != nil {
 			release, err = pm.GithubClient.GetReleaseByTagWithOptions(pkgID, version, options)

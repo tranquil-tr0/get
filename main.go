@@ -53,6 +53,7 @@ func main() {
 			release, _ := cmd.Flags().GetString("release")
 			packageType, _ := cmd.Flags().GetString("tag-prefix")
 
+			output.PrintAction("Parsing repository URL...")
 			output.PrintVerboseStart("Parsing repository URL", repoURL)
 			pkgID, err := tools.ParseRepoURL(repoURL)
 			if err != nil {
@@ -69,6 +70,7 @@ func main() {
 				}
 			}
 
+			output.PrintAction("Installing package...")
 			output.PrintVerboseStart("Installing package", pkgID)
 			if err := pm.InstallWithOptions(pkgID, release, options); err != nil {
 				output.PrintVerboseError("Install package", err)
