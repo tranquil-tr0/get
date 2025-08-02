@@ -10,6 +10,8 @@
 
 # Test main program binary
 get
+get-gui
+get-cli
 
 # Testing scripts
 *.sh
