@@ -4,8 +4,8 @@ go 1.24.2
 
 require (
 	github.com/google/go-github/v66 v66.0.0
-	github.com/spf13/cobra v1.9.1
 	github.com/mappu/miqt v0.11.0
+	github.com/spf13/cobra v1.9.1
 )
 
 require (
