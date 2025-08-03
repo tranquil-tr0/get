@@ -312,10 +312,6 @@ func (pm *PackageManager) InstallBinary(pkgID string, release *github.Release, b
 	})
 }
 
-func (pm *PackageManager) Install(pkgID string, version string) error {
-	return pm.InstallWithOptions(pkgID, version, nil)
-}
-
 // InstallWithOptions installs a package with additional options like tag prefix filtering
 func (pm *PackageManager) InstallWithOptions(pkgID string, version string, options *github.ReleaseOptions) error {
 	// Load metadata
