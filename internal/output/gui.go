@@ -74,8 +74,12 @@ func (o *GUIOutput) PromptAssetIndexSelection(debNames, binaryNames, otherNames 
 		return -1, nil
 	}
 
-	// QInputDialog_GetItem expects QWidget, title, label, and options
-	item := qt.QInputDialog_GetItem(o.window.QWidget, "Select Asset", "Choose an asset to install:", options)
+	var ok bool
+	item := qt.QInputDialog_GetItem4(o.window.QWidget, "Select Asset", "Choose an asset to install:", options, 0, false, &ok)
+	if !ok {
+		// User cancelled the dialog
+		return -1, nil
+	}
 	for i, name := range options {
 		if name == item {
 			return i, nil

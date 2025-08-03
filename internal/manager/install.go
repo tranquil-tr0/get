@@ -47,7 +47,7 @@ func (pm *PackageManager) SelectAssetInteractively(release *github.Release) (*gi
 
 	idx, err := pm.Out.PromptAssetIndexSelection(debNames, binaryNames, otherNames)
 	if err != nil || idx < 0 {
-		return nil, "", fmt.Errorf("asset selection cancelled or invalid: %v", err)
+		return nil, "", fmt.Errorf("asset selection invalid: %v", err)
 	}
 
 	var selectedAsset *github.Asset
