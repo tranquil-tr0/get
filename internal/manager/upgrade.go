@@ -21,7 +21,7 @@ func (pm *PackageManager) UpgradeAllPackages() error {
 
 	updateErrors := false
 	for pkgID := range pendingUpdates {
-		pm.Out.PrintAction("Upgrading %s...", pkgID)
+		pm.Out.PrintStatus("Upgrading %s...", pkgID)
 		if updateErr := pm.UpgradeSpecificPackage(pkgID); updateErr != nil {
 			pm.Out.PrintError("Error upgrading %s: %v", pkgID, updateErr)
 			updateErrors = true

@@ -186,12 +186,12 @@ func main() {
 		Short:   "Upgrade outdated packages",
 		Long:    "Check for updates then upgrade outdated packages",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			pm.Out.PrintAction("Checking for updates...")
+			pm.Out.PrintStatus("Checking for updates...")
 			if _, err := pm.UpdateAllPackages(); err != nil {
 				return fmt.Errorf("error checking for updates: %v", err)
 			}
 
-			pm.Out.PrintAction("Applying updates...")
+			pm.Out.PrintStatus("Applying updates...")
 			if err := pm.UpgradeAllPackages(); err != nil {
 				return fmt.Errorf("error upgrading packages: %v", err)
 			}

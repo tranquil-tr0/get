@@ -17,9 +17,9 @@ func NewGUIOutput(window *qt.QMainWindow) *GUIOutput {
 	return &GUIOutput{window: window}
 }
 
-// PrintAction prints an action message in a dialog.
-func (o *GUIOutput) PrintAction(msg string, args ...any) {
-	// TODO: Implement status bar or notification for action messages
+// PrintStatus prints an action message in a dialog.
+func (o *GUIOutput) PrintStatus(msg string, args ...any) {
+	// TODO: Implement status bar for action messages
 	// Temporarily using console output for debugging
 	fmt.Printf("GUI Action: "+msg+"\n", args...)
 }

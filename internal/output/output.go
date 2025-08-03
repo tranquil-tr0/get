@@ -63,8 +63,8 @@ func PrintYellow(format string, a ...interface{}) {
 	fmt.Printf("%s\n", Yellow(msg))
 }
 
-// PrintAction calls PrintYellow
-func PrintAction(format string, a ...interface{}) {
+// PrintStatus calls PrintYellow
+func PrintStatus(format string, a ...interface{}) {
 	msg := fmt.Sprintf(format, a...)
 	PrintYellow("%s", msg)
 }

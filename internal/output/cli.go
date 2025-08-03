@@ -9,9 +9,9 @@ func NewCLIOutput() *CLIOutput {
 	return &CLIOutput{}
 }
 
-// PrintAction prints an action message to the console.
-func (o *CLIOutput) PrintAction(msg string, args ...any) {
-	PrintAction(msg, args...)
+// PrintStatus prints an action message to the console.
+func (o *CLIOutput) PrintStatus(msg string, args ...any) {
+	PrintStatus(msg, args...)
 }
 
 // PrintSuccess prints a success message to the console.
