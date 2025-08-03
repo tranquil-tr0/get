@@ -1,14 +1,12 @@
 package manager
 
 import (
-	"bufio"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
 	"strings"
 
 	"github.com/tranquil-tr0/get/internal/github"
@@ -18,76 +16,55 @@ import (
 func (pm *PackageManager) SelectAssetInteractively(release *github.Release) (*github.Asset, string, error) {
 	debPackages := release.FindDebPackages()
 	binaryAssets := release.FindBinaryAssets()
-
-	fmt.Printf("\nAvailable assets in release %s:\n", release.TagName)
-
-	var allAssets []github.Asset
-	var assetTypes []string
-
-	// Add .deb packages
-	for _, asset := range debPackages {
-		allAssets = append(allAssets, asset)
-		assetTypes = append(assetTypes, "deb")
-		fmt.Printf("  [%d] %s\n", len(allAssets), asset.Name)
+	// Other assets: not deb or binary
+	var otherAssets []github.Asset
+	assetMap := make(map[string]struct{})
+	for _, a := range debPackages {
+		assetMap[a.Name] = struct{}{}
 	}
-
-	// Add binary assets
-	for _, asset := range binaryAssets {
-		allAssets = append(allAssets, asset)
-		assetTypes = append(assetTypes, "binary")
-		fmt.Printf("  [%d] %s\n", len(allAssets), asset.Name)
+	for _, a := range binaryAssets {
+		assetMap[a.Name] = struct{}{}
 	}
-
-	// Add option to specify other file as executable
-	fmt.Printf("  [%d] Other file (specify as executable)\n", len(allAssets)+1)
-
-	if len(allAssets) == 0 {
-		fmt.Println("\nNo .deb packages or likely binary executables found.")
-		fmt.Println("Available assets:")
-		for _, asset := range release.Assets {
-			fmt.Printf("  - %s\n", asset.Name)
+	for _, asset := range release.Assets {
+		if _, found := assetMap[asset.Name]; !found {
+			otherAssets = append(otherAssets, asset)
 		}
 	}
 
-	fmt.Print("\nSelect an option (number): ")
-
-	scanner := bufio.NewScanner(os.Stdin)
-	scanner.Scan()
-	input := strings.TrimSpace(scanner.Text())
-
-	choice, err := strconv.Atoi(input)
-	if err != nil {
-		return nil, "", fmt.Errorf("invalid selection: %s", input)
+	// Prepare name slices for output selection
+	debNames := make([]string, len(debPackages))
+	for i, a := range debPackages {
+		debNames[i] = a.Name
+	}
+	binaryNames := make([]string, len(binaryAssets))
+	for i, a := range binaryAssets {
+		binaryNames[i] = a.Name
+	}
+	otherNames := make([]string, len(otherAssets))
+	for i, a := range otherAssets {
+		otherNames[i] = a.Name
 	}
 
-	// Handle "Other file" option
-	if choice == len(allAssets)+1 {
-		fmt.Println("\nAvailable assets:")
-		for i, asset := range release.Assets {
-			fmt.Printf("  [%d] %s\n", i+1, asset.Name)
-		}
-		fmt.Print("Select asset number: ")
-
-		scanner.Scan()
-		otherInput := strings.TrimSpace(scanner.Text())
-		otherChoice, err := strconv.Atoi(otherInput)
-		if err != nil || otherChoice < 1 || otherChoice > len(release.Assets) {
-			return nil, "", fmt.Errorf("invalid asset selection: %s", otherInput)
-		}
-
-		selectedAsset := release.Assets[otherChoice-1]
-		return &selectedAsset, "binary", nil
+	idx, err := pm.Out.PromptAssetIndexSelection(debNames, binaryNames, otherNames)
+	if err != nil || idx < 0 {
+		return nil, "", fmt.Errorf("asset selection cancelled or invalid: %v", err)
 	}
 
-	// Validate choice
-	if choice < 1 || choice > len(allAssets) {
-		return nil, "", fmt.Errorf("invalid selection: %d (must be between 1 and %d)", choice, len(allAssets))
+	var selectedAsset *github.Asset
+	var typ string
+	if idx < len(debPackages) {
+		selectedAsset = &debPackages[idx]
+		typ = "deb"
+	} else if idx < len(debPackages)+len(binaryAssets) {
+		selectedAsset = &binaryAssets[idx-len(debPackages)]
+		typ = "binary"
+	} else if idx < len(debPackages)+len(binaryAssets)+len(otherAssets) {
+		selectedAsset = &otherAssets[idx-len(debPackages)-len(binaryAssets)]
+		typ = "other"
+	} else {
+		return nil, "", fmt.Errorf("invalid asset index: %d", idx)
 	}
-
-	selectedAsset := allAssets[choice-1]
-	selectedType := assetTypes[choice-1]
-
-	return &selectedAsset, selectedType, nil
+	return selectedAsset, typ, nil
 }
 
 func (pm *PackageManager) InstallRelease(pkgID string, release *github.Release, preSelectedAsset *github.Asset) error {

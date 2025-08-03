@@ -2,6 +2,7 @@ package output
 
 // Output defines the interface for printing different types of messages
 // with optional formatting arguments.
+
 type Output interface {
 	// PrintStatus prints a message explaining what the program is doing with optional arguments
 	PrintStatus(msg string, args ...any)
@@ -11,4 +12,7 @@ type Output interface {
 	PrintError(msg string, args ...any)
 	// PrintInfo prints an informational message with optional arguments
 	PrintInfo(msg string, args ...any)
+
+	// PromptAssetIndexSelection presents asset name lists and returns the selected index
+	PromptAssetIndexSelection(debNames, binaryNames, otherNames []string) (int, error)
 }

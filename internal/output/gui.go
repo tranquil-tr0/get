@@ -21,7 +21,7 @@ func NewGUIOutput(window *qt.QMainWindow) *GUIOutput {
 func (o *GUIOutput) PrintStatus(msg string, args ...any) {
 	// TODO: Implement status bar for action messages
 	// Temporarily using console output for debugging
-	fmt.Printf("GUI Action: "+msg+"\n", args...)
+	fmt.Printf("GUI Status: "+msg+"\n", args...)
 }
 
 // PrintSuccess prints a success message in a dialog.
@@ -49,4 +49,37 @@ func (o *GUIOutput) PrintInfo(msg string, args ...any) {
 	msgBox.SetWindowTitle("Info")
 	msgBox.SetText(fmt.Sprintf(msg, args...))
 	msgBox.Exec()
+}
+
+// PromptAssetIndexSelection presents asset name lists to the user in a dialog and returns the selected index.
+func (o *GUIOutput) PromptAssetIndexSelection(debNames, binaryNames, otherNames []string) (int, error) {
+	var allNames []string
+	var options []string
+
+	for _, name := range debNames {
+		allNames = append(allNames, name)
+		options = append(options, "[deb] "+name)
+	}
+	for _, name := range binaryNames {
+		allNames = append(allNames, name)
+		options = append(options, "[bin] "+name)
+	}
+	for _, name := range otherNames {
+		allNames = append(allNames, name)
+		options = append(options, "[other] "+name)
+	}
+
+	if len(allNames) == 0 {
+		o.PrintError("No installable assets found.")
+		return -1, nil
+	}
+
+	// QInputDialog_GetItem expects QWidget, title, label, and options
+	item := qt.QInputDialog_GetItem(o.window.QWidget, "Select Asset", "Choose an asset to install:", options)
+	for i, name := range options {
+		if name == item {
+			return i, nil
+		}
+	}
+	return -1, nil
 }

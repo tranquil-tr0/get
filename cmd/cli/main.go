@@ -19,7 +19,7 @@ var pm *manager.PackageManager
 func main() {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
-		output.PrintError("Error getting home directory: %v", err)
+		fmt.Fprintf(os.Stderr, "Error getting home directory: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -32,13 +32,6 @@ func main() {
 		Version: "v0.1.0",
 		Short:   "A package manager for GitHub releases",
 		Long:    "A package manager for GitHub releases that helps you install and manage packages from GitHub without worrying about leaving unupdated packages on your system.",
-		PersistentPreRun: func(cmd *cobra.Command, args []string) {
-			verbose, _ := cmd.Flags().GetBool("verbose")
-			if verbose {
-				output.SetVerbose(true)
-				pm.Verbose = true
-			}
-		},
 	}
 
 	// Add persistent verbose flag that works for all commands
