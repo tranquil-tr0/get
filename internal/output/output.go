@@ -81,8 +81,8 @@ func PrintSuccess(format string, a ...interface{}) {
 	fmt.Printf("%s\n", Bold(Green(msg)))
 }
 
-// PrintNormal prints the message in normal format
-func PrintNormal(format string, a ...interface{}) {
+// PrintInfo prints the message in normal format
+func PrintInfo(format string, a ...interface{}) {
 	msg := fmt.Sprintf(format, a...)
 	fmt.Printf("%s\n", msg)
 }

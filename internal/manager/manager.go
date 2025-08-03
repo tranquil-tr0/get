@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/tranquil-tr0/get/internal/github"
+	"github.com/tranquil-tr0/get/internal/output"
 )
 
 type PackageManager struct {
@@ -14,17 +15,18 @@ type PackageManager struct {
 	GithubClient *github.Client
 	Verbose      bool
 	Yes          bool
+	Out          output.Output
 }
 
 type PackageMetadata struct {
-	Version        string `json:"version"`
-	InstalledAt    string `json:"installed_at"`
-	AptName        string `json:"apt_name,omitempty"`        // For .deb packages
-	BinaryPath     string `json:"binary_path,omitempty"`     // For binary installations
-	InstallType    string `json:"install_type"`              // "deb" or "binary"
-	OriginalName   string `json:"original_name,omitempty"`   // Original asset filename
-	ChosenAsset    string `json:"chosen_asset,omitempty"`
-	TagPrefix      string `json:"tag_prefix,omitempty"`      // Tag prefix for filtering (e.g., "auth-", "photos-")
+	Version      string `json:"version"`
+	InstalledAt  string `json:"installed_at"`
+	AptName      string `json:"apt_name,omitempty"`      // For .deb packages
+	BinaryPath   string `json:"binary_path,omitempty"`   // For binary installations
+	InstallType  string `json:"install_type"`            // "deb" or "binary"
+	OriginalName string `json:"original_name,omitempty"` // Original asset filename
+	ChosenAsset  string `json:"chosen_asset,omitempty"`
+	TagPrefix    string `json:"tag_prefix,omitempty"` // Tag prefix for filtering (e.g., "auth-", "photos-")
 }
 
 type PackageManagerMetadata struct {
@@ -33,11 +35,16 @@ type PackageManagerMetadata struct {
 }
 
 // NewPackageManager returns a new PackageManager struct that stores metadata at the specified path
-func NewPackageManager(metadataPath string) *PackageManager {
+func NewPackageManager(metadataPath string, out output.Output) *PackageManager {
+	if out == nil {
+		out = output.NewCLIOutput()
+		// TODO: consider adding an error value to handle this case
+	}
 	return &PackageManager{
 		MetadataPath: metadataPath,
 		GithubClient: github.NewClient(),
-		Yes:					false,
+		Yes:          false,
+		Out:          out,
 	}
 }
 

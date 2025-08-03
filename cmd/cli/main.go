@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/tranquil-tr0/get/internal/github"
 	"github.com/tranquil-tr0/get/internal/manager"
@@ -23,7 +24,8 @@ func main() {
 	}
 
 	metadataPath := filepath.Join(homeDir, ".local/share/get/get.json")
-	pm = manager.NewPackageManager(metadataPath)
+	out := output.NewCLIOutput()
+	pm = manager.NewPackageManager(metadataPath, out)
 
 	rootCmd := &cobra.Command{
 		Use:     "get",
@@ -53,16 +55,11 @@ func main() {
 			release, _ := cmd.Flags().GetString("release")
 			packageType, _ := cmd.Flags().GetString("tag-prefix")
 
-			output.PrintAction("Parsing repository URL...")
-			output.PrintVerboseStart("Parsing repository URL", repoURL)
 			pkgID, err := tools.ParseRepoURL(repoURL)
 			if err != nil {
-				output.PrintVerboseError("Parse repository URL", err)
 				return fmt.Errorf("failed to parse repository URL: %v", err)
 			}
-			output.PrintVerboseComplete("Parse repository URL", pkgID)
 
-			// Prepare options if tag prefix is specified
 			var options *github.ReleaseOptions
 			if packageType != "" {
 				options = &github.ReleaseOptions{
@@ -70,14 +67,10 @@ func main() {
 				}
 			}
 
-			output.PrintAction("Installing package...")
-			output.PrintVerboseStart("Installing package", pkgID)
 			if err := pm.InstallWithOptions(pkgID, release, options); err != nil {
-				output.PrintVerboseError("Install package", err)
 				return fmt.Errorf("error installing package: %v", err)
 			}
-			output.PrintVerboseComplete("Install package", pkgID)
-			output.PrintSuccess("Successfully installed %s", pkgID)
+			pm.Out.PrintSuccess("Successfully installed %s", pkgID)
 			return nil
 		},
 	}
@@ -91,13 +84,26 @@ func main() {
 		Short: "List installed packages",
 		Long:  "Display a list of all packages installed through get.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			output.PrintVerboseStart("Loading installed packages")
-			err := pm.PrintInstalledPackages()
+			packages, err := pm.ListInstalledPackages()
 			if err != nil {
-				output.PrintVerboseError("Load installed packages", err)
-				return fmt.Errorf("error listing packages: %v", err)
+				return err
 			}
-			output.PrintVerboseComplete("Load installed packages")
+
+			if len(packages) == 0 {
+				pm.Out.PrintInfo("No packages installed.")
+			} else {
+				pm.Out.PrintInfo("Installed packages:")
+				for pkgID, pkg := range packages {
+					parts := strings.Split(pkgID, "/")
+					var owner, repo string
+					if len(parts) >= 2 {
+						owner, repo = parts[0], parts[1]
+					} else {
+						owner, repo = pkgID, ""
+					}
+					pm.Out.PrintInfo(" %s/%s (Version: %s, Installed: %s)", owner, repo, pkg.Version, pkg.InstalledAt)
+				}
+			}
 			return nil
 		},
 	}
@@ -112,21 +118,15 @@ func main() {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			repoURL := args[0]
 
-			output.PrintVerboseStart("Parsing repository URL", repoURL)
 			pkgID, err := tools.ParseRepoURL(repoURL)
 			if err != nil {
-				output.PrintVerboseError("Parse repository URL", err)
 				return fmt.Errorf("failed to parse repository URL: %v", err)
 			}
-			output.PrintVerboseComplete("Parse repository URL", pkgID)
 
-			output.PrintVerboseStart("Removing package", pkgID)
 			if err := pm.Remove(pkgID); err != nil {
-				output.PrintVerboseError("Remove package", err)
 				return fmt.Errorf("error removing package: %v", err)
 			}
-			output.PrintVerboseComplete("Remove package", pkgID)
-			output.PrintSuccess("Successfully removed %s", pkgID)
+			pm.Out.PrintSuccess("Successfully removed %s", pkgID)
 			return nil
 		},
 	}
@@ -138,13 +138,21 @@ func main() {
 		Short: "Check for package updates",
 		Long:  "Check for available updates of installed packages",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			output.PrintAction("Checking for updates...")
-			output.PrintVerboseStart("Checking for package updates")
-			if err := pm.UpdateAllPackages(); err != nil {
-				output.PrintVerboseError("Check for updates", err)
-				return fmt.Errorf("error checking for updates: %v", err)
+			updates, err := pm.UpdateAllPackages()
+			if err != nil {
+				return err
 			}
-			output.PrintVerboseComplete("Check for package updates")
+
+			if len(updates) == 0 {
+				pm.Out.PrintInfo("No updates available.")
+				return nil
+			}
+
+			pm.Out.PrintInfo("Available updates:")
+			for pkgID, version := range updates {
+				pm.Out.PrintInfo("  %s: %s", pkgID, version)
+				// TODO: add update available from version to version
+			}
 			return nil
 		},
 	}
@@ -161,14 +169,10 @@ func main() {
 				pm.Yes = true
 			}
 
-			output.PrintAction("Upgrading packages...")
-			output.PrintVerboseStart("Upgrading packages")
 			if err := pm.UpgradeAllPackages(); err != nil {
-				output.PrintVerboseError("Upgrade packages", err)
 				return fmt.Errorf("error upgrading packages: %v", err)
 			}
-			output.PrintVerboseComplete("Upgrade packages")
-			output.PrintSuccess("Successfully applied all available updates")
+			pm.Out.PrintSuccess("Successfully applied all available updates")
 			return nil
 		},
 	}
@@ -182,30 +186,24 @@ func main() {
 		Short:   "Upgrade outdated packages",
 		Long:    "Check for updates then upgrade outdated packages",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			output.PrintAction("Checking for updates...")
-			output.PrintVerboseStart("Checking for package updates")
-			if err := pm.UpdateAllPackages(); err != nil {
-				output.PrintVerboseError("Check for updates", err)
+			pm.Out.PrintAction("Checking for updates...")
+			if _, err := pm.UpdateAllPackages(); err != nil {
 				return fmt.Errorf("error checking for updates: %v", err)
 			}
-			output.PrintVerboseComplete("Check for package updates")
 
-			output.PrintAction("Applying updates...")
-			output.PrintVerboseStart("Upgrading packages")
+			pm.Out.PrintAction("Applying updates...")
 			if err := pm.UpgradeAllPackages(); err != nil {
-				output.PrintVerboseError("Upgrade packages", err)
 				return fmt.Errorf("error upgrading packages: %v", err)
 			}
-			output.PrintVerboseComplete("Upgrade packages")
 
-			output.PrintSuccess("Successfully applied all available updates")
+			pm.Out.PrintSuccess("Successfully applied all available updates")
 			return nil
 		},
 	}
 	rootCmd.AddCommand(updateUpgradeCmd)
 
 	if err := rootCmd.Execute(); err != nil {
-		output.PrintError("%v", err)
+		pm.Out.PrintError("%v", err)
 		os.Exit(1)
 	}
 }

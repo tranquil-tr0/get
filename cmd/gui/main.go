@@ -8,6 +8,7 @@ import (
 
 	qt "github.com/mappu/miqt/qt6"
 	"github.com/tranquil-tr0/get/internal/manager"
+	"github.com/tranquil-tr0/get/internal/output"
 	"github.com/tranquil-tr0/get/internal/tools"
 )
 
@@ -20,13 +21,15 @@ func main() {
 		os.Exit(1)
 	}
 	metadataPath := filepath.Join(homeDir, ".local/share/get/get.json")
-	pm = manager.NewPackageManager(metadataPath)
 
 	qt.NewQApplication(os.Args)
 
 	window := qt.NewQMainWindow(nil)
 	window.SetWindowTitle("Get GUI")
 	window.SetMinimumSize(qt.NewQSize2(800, 600))
+
+	out := output.NewGUIOutput(window)
+	pm = manager.NewPackageManager(metadataPath, out)
 
 	centralWidget := qt.NewQWidget(nil)
 	window.SetCentralWidget(centralWidget)
@@ -83,19 +86,15 @@ func main() {
 
 	refreshPackageList := func() {
 		packageList.Clear()
-		metadata, err := pm.GetPackageManagerMetadata()
+		packages, err := pm.ListInstalledPackages()
 		if err != nil {
-			msgBox := qt.NewQMessageBox(window.QWidget)
-			msgBox.SetIcon(qt.QMessageBox__Critical)
-			msgBox.SetWindowTitle("Error")
-			msgBox.SetText(fmt.Sprintf("Failed to load package metadata:\n%v", err))
-			msgBox.Exec()
+			pm.Out.PrintError("Failed to load package metadata:\n%v", err)
 			return
 		}
-		if len(metadata.Packages) == 0 {
+		if len(packages) == 0 {
 			packageList.AddItem("No packages installed.")
 		} else {
-			for pkgID, pkg := range metadata.Packages {
+			for pkgID, pkg := range packages {
 				itemText := fmt.Sprintf("%s (Version: %s)", pkgID, pkg.Version)
 				packageList.AddItem(itemText)
 			}
@@ -109,26 +108,14 @@ func main() {
 		}
 		pkgID, err := tools.ParseRepoURL(repoURL)
 		if err != nil {
-			msgBox := qt.NewQMessageBox(window.QWidget)
-			msgBox.SetIcon(qt.QMessageBox__Critical)
-			msgBox.SetWindowTitle("Error")
-			msgBox.SetText(fmt.Sprintf("Invalid repository URL:\n%v", err))
-			msgBox.Exec()
+			pm.Out.PrintError("Invalid repository URL:\n%v", err)
 			return
 		}
 
 		if err := pm.InstallWithOptions(pkgID, "", nil); err != nil {
-			msgBox := qt.NewQMessageBox(window.QWidget)
-			msgBox.SetIcon(qt.QMessageBox__Critical)
-			msgBox.SetWindowTitle("Error")
-			msgBox.SetText(fmt.Sprintf("Failed to install package:\n%v", err))
-			msgBox.Exec()
+			pm.Out.PrintError("Failed to install package:\n%v", err)
 		} else {
-			msgBox := qt.NewQMessageBox(window.QWidget)
-			msgBox.SetIcon(qt.QMessageBox__Information)
-			msgBox.SetWindowTitle("Success")
-			msgBox.SetText(fmt.Sprintf("Successfully installed %s", pkgID))
-			msgBox.Exec()
+			pm.Out.PrintSuccess("Successfully installed %s", pkgID)
 			repoInput.Clear()
 			refreshPackageList()
 		}
@@ -143,50 +130,37 @@ func main() {
 		pkgID := strings.Split(pkgText, " ")[0]
 
 		if err := pm.Remove(pkgID); err != nil {
-			msgBox := qt.NewQMessageBox(window.QWidget)
-			msgBox.SetIcon(qt.QMessageBox__Critical)
-			msgBox.SetWindowTitle("Error")
-			msgBox.SetText(fmt.Sprintf("Failed to remove package:\n%v", err))
-			msgBox.Exec()
+			pm.Out.PrintError("Failed to remove package:\n%v", err)
 		} else {
-			msgBox := qt.NewQMessageBox(window.QWidget)
-			msgBox.SetIcon(qt.QMessageBox__Information)
-			msgBox.SetWindowTitle("Success")
-			msgBox.SetText(fmt.Sprintf("Successfully removed %s", pkgID))
-			msgBox.Exec()
+			pm.Out.PrintSuccess("Successfully removed %s", pkgID)
 			refreshPackageList()
 		}
 	})
 
 	updateButton.OnClicked(func() {
-		if err := pm.UpdateAllPackages(); err != nil {
-			msgBox := qt.NewQMessageBox(window.QWidget)
-			msgBox.SetIcon(qt.QMessageBox__Critical)
-			msgBox.SetWindowTitle("Error")
-			msgBox.SetText(fmt.Sprintf("Failed to check for updates:\n%v", err))
-			msgBox.Exec()
-		} else {
-			msgBox := qt.NewQMessageBox(window.QWidget)
-			msgBox.SetIcon(qt.QMessageBox__Information)
-			msgBox.SetWindowTitle("Success")
-			msgBox.SetText("Update check complete.")
-			msgBox.Exec()
+		updates, err := pm.UpdateAllPackages()
+		if err != nil {
+			pm.Out.PrintError("Failed to check for updates:\n%v", err)
 		}
+
+		if len(updates) == 0 {
+			pm.Out.PrintInfo("No updates available.")
+			return
+		}
+
+		var updateText strings.Builder
+		updateText.WriteString("Available updates:\n")
+		for pkgID, version := range updates {
+			updateText.WriteString(fmt.Sprintf("  %s: %s\n", pkgID, version))
+		}
+		pm.Out.PrintInfo(updateText.String())
 	})
 
 	upgradeButton.OnClicked(func() {
 		if err := pm.UpgradeAllPackages(); err != nil {
-			msgBox := qt.NewQMessageBox(window.QWidget)
-			msgBox.SetIcon(qt.QMessageBox__Critical)
-			msgBox.SetWindowTitle("Error")
-			msgBox.SetText(fmt.Sprintf("Failed to upgrade packages:\n%v", err))
-			msgBox.Exec()
+			pm.Out.PrintError("Failed to upgrade packages:\n%v", err)
 		} else {
-			msgBox := qt.NewQMessageBox(window.QWidget)
-			msgBox.SetIcon(qt.QMessageBox__Information)
-			msgBox.SetWindowTitle("Success")
-			msgBox.SetText("All packages upgraded successfully.")
-			msgBox.Exec()
+			pm.Out.PrintSuccess("All packages upgraded successfully.")
 			refreshPackageList()
 		}
 	})
