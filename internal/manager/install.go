@@ -18,29 +18,29 @@ import (
 func (pm *PackageManager) SelectAssetInteractively(release *github.Release) (*github.Asset, string, error) {
 	debPackages := release.FindDebPackages()
 	binaryAssets := release.FindBinaryAssets()
-	
+
 	fmt.Printf("\nAvailable assets in release %s:\n", release.TagName)
-	
+
 	var allAssets []github.Asset
 	var assetTypes []string
-	
+
 	// Add .deb packages
 	for _, asset := range debPackages {
 		allAssets = append(allAssets, asset)
 		assetTypes = append(assetTypes, "deb")
 		fmt.Printf("  [%d] %s\n", len(allAssets), asset.Name)
 	}
-	
+
 	// Add binary assets
 	for _, asset := range binaryAssets {
 		allAssets = append(allAssets, asset)
 		assetTypes = append(assetTypes, "binary")
 		fmt.Printf("  [%d] %s\n", len(allAssets), asset.Name)
 	}
-	
+
 	// Add option to specify other file as executable
 	fmt.Printf("  [%d] Other file (specify as executable)\n", len(allAssets)+1)
-	
+
 	if len(allAssets) == 0 {
 		fmt.Println("\nNo .deb packages or likely binary executables found.")
 		fmt.Println("Available assets:")
@@ -48,18 +48,18 @@ func (pm *PackageManager) SelectAssetInteractively(release *github.Release) (*gi
 			fmt.Printf("  - %s\n", asset.Name)
 		}
 	}
-	
+
 	fmt.Print("\nSelect an option (number): ")
-	
+
 	scanner := bufio.NewScanner(os.Stdin)
 	scanner.Scan()
 	input := strings.TrimSpace(scanner.Text())
-	
+
 	choice, err := strconv.Atoi(input)
 	if err != nil {
 		return nil, "", fmt.Errorf("invalid selection: %s", input)
 	}
-	
+
 	// Handle "Other file" option
 	if choice == len(allAssets)+1 {
 		fmt.Println("\nAvailable assets:")
@@ -67,26 +67,26 @@ func (pm *PackageManager) SelectAssetInteractively(release *github.Release) (*gi
 			fmt.Printf("  [%d] %s\n", i+1, asset.Name)
 		}
 		fmt.Print("Select asset number: ")
-		
+
 		scanner.Scan()
 		otherInput := strings.TrimSpace(scanner.Text())
 		otherChoice, err := strconv.Atoi(otherInput)
 		if err != nil || otherChoice < 1 || otherChoice > len(release.Assets) {
 			return nil, "", fmt.Errorf("invalid asset selection: %s", otherInput)
 		}
-		
+
 		selectedAsset := release.Assets[otherChoice-1]
 		return &selectedAsset, "binary", nil
 	}
-	
+
 	// Validate choice
 	if choice < 1 || choice > len(allAssets) {
 		return nil, "", fmt.Errorf("invalid selection: %d (must be between 1 and %d)", choice, len(allAssets))
 	}
-	
+
 	selectedAsset := allAssets[choice-1]
 	selectedType := assetTypes[choice-1]
-	
+
 	return &selectedAsset, selectedType, nil
 }
 
@@ -208,7 +208,7 @@ func (pm *PackageManager) InstallDebPackage(pkgID string, release *github.Releas
 				aptPackageName = parts[0]
 			}
 		}
-		
+
 		if aptPackageName == "" {
 			return fmt.Errorf("failed to extract package name: %v", nameErr)
 		}
@@ -270,33 +270,33 @@ func (pm *PackageManager) InstallBinary(pkgID string, release *github.Release, b
 
 	// Install binary to /usr/local/bin
 	pm.Out.PrintAction("Installing binary to /usr/local/bin...")
-	
+
 	// Check if we're upgrading the 'get' binary itself (to avoid "Text file busy" error)
 	isSelfUpgrade := pkgID == "tranquil-tr0/get" && binaryName == "get"
-	
+
 	// Check if the binary already exists and we need special handling for self-upgrade
 	backupPath := finalBinaryPath + ".old"
 	binaryExists := false
 	if isSelfUpgrade {
 		if _, err := os.Stat(finalBinaryPath); err == nil {
 			binaryExists = true
-			
+
 			// First, move the existing binary to a backup location to avoid "Text file busy" error
 			mvCmd := exec.Command("sudo", "-p", "[get] Password required for binary installation: ", "mv", finalBinaryPath, backupPath)
-			
+
 			mvOutput, mvErr := mvCmd.CombinedOutput()
 			if mvErr != nil {
 				return fmt.Errorf("failed to backup existing binary: %v\nOutput: %s", mvErr, mvOutput)
 			}
 		}
 	}
-	
+
 	// Copy the new binary
 	cmd := exec.Command("sudo", "-p", "[get] Password required for binary installation: ", "cp", tempBinaryPath, finalBinaryPath)
 
 	cmdOutput, installErr := cmd.CombinedOutput()
 	if installErr != nil {
-		
+
 		// If installation failed and we had a backup (self-upgrade), try to restore it
 		if isSelfUpgrade && binaryExists {
 			restoreCmd := exec.Command("sudo", "mv", backupPath, finalBinaryPath)
@@ -304,10 +304,10 @@ func (pm *PackageManager) InstallBinary(pkgID string, release *github.Release, b
 				return fmt.Errorf("failed to install binary and failed to restore backup: install error: %v, restore error: %v", installErr, restoreErr)
 			}
 		}
-		
+
 		return fmt.Errorf("failed to install binary: %v\nOutput: %s", installErr, cmdOutput)
 	}
-	
+
 	// Installation successful, clean up backup if it exists (self-upgrade only)
 	if isSelfUpgrade && binaryExists {
 		rmCmd := exec.Command("sudo", "rm", backupPath)
@@ -317,9 +317,8 @@ func (pm *PackageManager) InstallBinary(pkgID string, release *github.Release, b
 		} else {
 		}
 	}
-	
 
-pm.Out.PrintSuccess("Binary installed as: %s", binaryName)
+	pm.Out.PrintSuccess("Binary installed as: %s", binaryName)
 
 	// Update metadata
 	tagPrefix := ""
@@ -430,14 +429,14 @@ func (pm *PackageManager) GetPackageNameFromDeb(packagePath string) (string, err
 
 // RollbackInstallation removes a package if installation metadata update fails
 func (pm *PackageManager) RollbackInstallation(packageName string) error {
-	
+
 	cmd := exec.Command("sudo", "dpkg", "--remove", packageName)
-	
+
 	_, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("rollback failed: %v", err)
 	}
-	
+
 	return nil
 }
 
@@ -455,22 +454,19 @@ func (pm *PackageManager) UpdatePackageMetadata(pkgID string, release *github.Re
 
 	metadata.Packages[pkgID] = pkgMetadata
 
-	// Remove from pending updates if it exists
-	if _, hadUpdate := metadata.PendingUpdates[pkgID]; hadUpdate {
-		delete(metadata.PendingUpdates, pkgID)
-	}
+	delete(metadata.PendingUpdates, pkgID)
 
 	err := pm.WritePackageManagerMetadata(metadata)
 	if err != nil {
 		// Attempt rollback if metadata write fails
 		var rollbackErr error
 		switch pkgMetadata.InstallType {
-case "deb":
+		case "deb":
 			rollbackErr = pm.RollbackInstallation(pkgMetadata.AptName)
 		case "binary":
 			rollbackErr = pm.RollbackBinaryInstallation(pkgMetadata.BinaryPath)
 		}
-		
+
 		if rollbackErr != nil {
 			return fmt.Errorf("installation succeeded but metadata write failed, and rollback also failed: %v (rollback error: %v)", err, rollbackErr)
 		}
@@ -484,25 +480,25 @@ func (pm *PackageManager) GetBinaryName(pkgID, originalName string) string {
 	parts := strings.Split(pkgID, "/")
 	if len(parts) >= 2 {
 		repoName := parts[1]
-		
+
 		// If the original name is just the repo name or similar, use it
 		baseName := filepath.Base(originalName)
-		
+
 		// Remove common suffixes that might indicate architecture/platform
 		suffixes := []string{"-linux", "-x86_64", "-amd64", "-gnu", ".exe"}
 		for _, suffix := range suffixes {
 			baseName = strings.TrimSuffix(baseName, suffix)
 		}
-		
+
 		// If the cleaned name is similar to repo name, prefer the original
 		if strings.Contains(strings.ToLower(baseName), strings.ToLower(repoName)) {
 			return baseName
 		}
-		
+
 		// Otherwise, use repo name
 		return repoName
 	}
-	
+
 	// Fallback to cleaned original name
 	baseName := filepath.Base(originalName)
 	suffixes := []string{"-linux", "-x86_64", "-amd64", "-gnu", ".exe"}
@@ -514,13 +510,13 @@ func (pm *PackageManager) GetBinaryName(pkgID, originalName string) string {
 
 // RollbackBinaryInstallation removes a binary installation
 func (pm *PackageManager) RollbackBinaryInstallation(binaryPath string) error {
-	
+
 	cmd := exec.Command("sudo", "rm", "-f", binaryPath)
 
 	_, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("binary rollback failed: %v", err)
 	}
-	
+
 	return nil
 }
