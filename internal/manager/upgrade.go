@@ -110,7 +110,7 @@ func (pm *PackageManager) UpgradeSpecificPackage(ctx context.Context, pkgID stri
 			}
 		}
 	} else {
-		fmt.Println("Saved asset not found in new release. Please select a new asset.")
+		pm.Out.PrintInfo("Saved asset was not found in the new release. Please select a new asset.")
 		selectedAsset, _, err := pm.SelectAssetInteractively(ctx, release)
 		if err != nil {
 			if err == context.Canceled {

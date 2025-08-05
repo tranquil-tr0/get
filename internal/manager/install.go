@@ -88,7 +88,7 @@ func (pm *PackageManager) InstallReleaseWithOptions(ctx context.Context, pkgID s
 		}
 	} else {
 		// Interactive asset selection
-		pm.Out.PrintStatus("Please choose the correct asset to install. Your selection will be saved for future installations.")
+		pm.Out.PrintInfo("Please choose the correct asset to install. Your selection will be saved for future installations.")
 		selectedAsset, installType, err = pm.SelectAssetInteractively(ctx, release)
 		if err != nil {
 			return err
