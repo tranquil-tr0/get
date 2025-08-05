@@ -60,7 +60,7 @@ func main() {
 				}
 			}
 
-			if err := pm.InstallWithOptions(pkgID, release, options); err != nil {
+			if err := pm.InstallWithOptions(cmd.Context(), pkgID, release, options); err != nil {
 				return fmt.Errorf("error installing package: %v", err)
 			}
 			pm.Out.PrintSuccess("Successfully installed %s", pkgID)
@@ -162,7 +162,7 @@ func main() {
 				pm.Yes = true
 			}
 
-			if err := pm.UpgradeAllPackages(); err != nil {
+			if err := pm.UpgradeAllPackages(cmd.Context()); err != nil {
 				return fmt.Errorf("error upgrading packages: %v", err)
 			}
 			pm.Out.PrintSuccess("Successfully applied all available updates")
@@ -185,7 +185,7 @@ func main() {
 			}
 
 			pm.Out.PrintStatus("Applying updates...")
-			if err := pm.UpgradeAllPackages(); err != nil {
+			if err := pm.UpgradeAllPackages(cmd.Context()); err != nil {
 				return fmt.Errorf("error upgrading packages: %v", err)
 			}
 

@@ -1,6 +1,7 @@
 package output
 
 import (
+	"context"
 	"fmt"
 
 	qt "github.com/mappu/miqt/qt6"
@@ -52,7 +53,7 @@ func (o *GUIOutput) PrintInfo(msg string, args ...any) {
 }
 
 // PromptAssetIndexSelection presents asset name lists to the user in a dialog and returns the selected index.
-func (o *GUIOutput) PromptAssetIndexSelection(debNames, binaryNames, otherNames []string) (int, error) {
+func (o *GUIOutput) PromptAssetIndexSelection(ctx context.Context, debNames, binaryNames, otherNames []string) (idx int, err error) {
 	var allNames []string
 	var options []string
 
@@ -70,7 +71,7 @@ func (o *GUIOutput) PromptAssetIndexSelection(debNames, binaryNames, otherNames 
 	}
 
 	if len(allNames) == 0 {
-		o.PrintError("No installable assets found.")
+		o.PrintError("No release packages found.")
 		return -1, nil
 	}
 
@@ -78,12 +79,12 @@ func (o *GUIOutput) PromptAssetIndexSelection(debNames, binaryNames, otherNames 
 	item := qt.QInputDialog_GetItem4(o.window.QWidget, "Select Asset", "Choose an asset to install:", options, 0, false, &ok)
 	if !ok {
 		// User cancelled the dialog
-		return -1, nil
+		return -1, context.Canceled
 	}
 	for i, name := range options {
 		if name == item {
 			return i, nil
 		}
 	}
-	return -1, nil
+	return -1, fmt.Errorf("selected item not found in options")
 }

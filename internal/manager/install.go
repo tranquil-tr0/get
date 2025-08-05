@@ -1,6 +1,7 @@
 package manager
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -12,8 +13,8 @@ import (
 	"github.com/tranquil-tr0/get/internal/github"
 )
 
-// SelectAssetInteractively prompts the user to select which asset to install
-func (pm *PackageManager) SelectAssetInteractively(release *github.Release) (*github.Asset, string, error) {
+// SelectAssetInteractively prompts the user to select which asset to install. Returns context.Canceled if user cancels.
+func (pm *PackageManager) SelectAssetInteractively(ctx context.Context, release *github.Release) (selectedAsset *github.Asset, typ string, err error) {
 	debPackages := release.FindDebPackages()
 	binaryAssets := release.FindBinaryAssets()
 	// Other assets: not deb or binary
@@ -45,13 +46,14 @@ func (pm *PackageManager) SelectAssetInteractively(release *github.Release) (*gi
 		otherNames[i] = a.Name
 	}
 
-	idx, err := pm.Out.PromptAssetIndexSelection(debNames, binaryNames, otherNames)
-	if err != nil || idx < 0 {
-		return nil, "", fmt.Errorf("asset selection invalid: %v", err)
+	idx, err := pm.Out.PromptAssetIndexSelection(ctx, debNames, binaryNames, otherNames)
+	if err != nil {
+		return nil, "", err
+	}
+	if idx < 0 || idx >= len(debPackages)+len(binaryAssets)+len(otherAssets) {
+		return nil, "", fmt.Errorf("invalid asset index: %d", idx)
 	}
 
-	var selectedAsset *github.Asset
-	var typ string
 	if idx < len(debPackages) {
 		selectedAsset = &debPackages[idx]
 		typ = "deb"
@@ -67,11 +69,11 @@ func (pm *PackageManager) SelectAssetInteractively(release *github.Release) (*gi
 	return selectedAsset, typ, nil
 }
 
-func (pm *PackageManager) InstallRelease(pkgID string, release *github.Release, preSelectedAsset *github.Asset) error {
-	return pm.InstallReleaseWithOptions(pkgID, release, preSelectedAsset, nil)
+func (pm *PackageManager) InstallRelease(ctx context.Context, pkgID string, release *github.Release, preSelectedAsset *github.Asset) error {
+	return pm.InstallReleaseWithOptions(ctx, pkgID, release, preSelectedAsset, nil)
 }
 
-func (pm *PackageManager) InstallReleaseWithOptions(pkgID string, release *github.Release, preSelectedAsset *github.Asset, options *github.ReleaseOptions) error {
+func (pm *PackageManager) InstallReleaseWithOptions(ctx context.Context, pkgID string, release *github.Release, preSelectedAsset *github.Asset, options *github.ReleaseOptions) error {
 	var selectedAsset *github.Asset
 	var installType string
 	var err error
@@ -87,9 +89,9 @@ func (pm *PackageManager) InstallReleaseWithOptions(pkgID string, release *githu
 	} else {
 		// Interactive asset selection
 		pm.Out.PrintStatus("Please choose the correct asset to install. Your selection will be saved for future installations.")
-		selectedAsset, installType, err = pm.SelectAssetInteractively(release)
+		selectedAsset, installType, err = pm.SelectAssetInteractively(ctx, release)
 		if err != nil {
-			return fmt.Errorf("failed to select asset: %v", err)
+			return err
 		}
 	}
 
@@ -313,7 +315,7 @@ func (pm *PackageManager) InstallBinary(pkgID string, release *github.Release, b
 }
 
 // InstallWithOptions installs a package with additional options like tag prefix filtering
-func (pm *PackageManager) InstallWithOptions(pkgID string, version string, options *github.ReleaseOptions) error {
+func (pm *PackageManager) InstallWithOptions(ctx context.Context, pkgID string, version string, options *github.ReleaseOptions) error {
 	// Load metadata
 	metadata, metaErr := pm.GetPackageManagerMetadata()
 	if metaErr != nil {
@@ -348,11 +350,11 @@ func (pm *PackageManager) InstallWithOptions(pkgID string, version string, optio
 	}
 
 	// install the package with a call to InstallRelease, and returns error
-	return pm.InstallReleaseWithOptions(pkgID, release, nil, options)
+	return pm.InstallReleaseWithOptions(ctx, pkgID, release, nil, options)
 }
 
 // InstallVersion does InstallRelease after fetching the release based on version
-func (pm *PackageManager) InstallVersion(pkgID string, version string, chosenAsset *github.Asset) error {
+func (pm *PackageManager) InstallVersion(ctx context.Context, pkgID string, version string, chosenAsset *github.Asset) error {
 	// get the Release
 	release, err := pm.GithubClient.GetReleaseByTag(pkgID, version)
 	if err != nil {
@@ -360,7 +362,7 @@ func (pm *PackageManager) InstallVersion(pkgID string, version string, chosenAss
 	}
 
 	// install the package with a call to InstallRelease, and returns error
-	return pm.InstallRelease(pkgID, release, chosenAsset)
+	return pm.InstallRelease(ctx, pkgID, release, chosenAsset)
 }
 
 // ValidateDebPackage validates a .deb package before installation

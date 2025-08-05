@@ -1,5 +1,7 @@
 package output
 
+import "context"
+
 // Output defines the interface for printing different types of messages
 // with optional formatting arguments.
 
@@ -14,5 +16,5 @@ type Output interface {
 	PrintInfo(msg string, args ...any)
 
 	// PromptAssetIndexSelection presents asset name lists and returns the selected index
-	PromptAssetIndexSelection(debNames, binaryNames, otherNames []string) (int, error)
+	PromptAssetIndexSelection(ctx context.Context, debNames, binaryNames, otherNames []string) (idx int, err error)
 }

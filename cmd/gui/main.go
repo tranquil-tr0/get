@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -112,7 +113,11 @@ func main() {
 			return
 		}
 
-		if err := pm.InstallWithOptions(pkgID, "", nil); err != nil {
+		if err := pm.InstallWithOptions(context.Background(), pkgID, "", nil); err != nil {
+			if err == context.Canceled {
+				// User cancelled, do nothing
+				return
+			}
 			pm.Out.PrintError("Failed to install package:\n%v", err)
 		} else {
 			pm.Out.PrintSuccess("Successfully installed %s", pkgID)
@@ -157,7 +162,7 @@ func main() {
 	})
 
 	upgradeButton.OnClicked(func() {
-		if err := pm.UpgradeAllPackages(); err != nil {
+		if err := pm.UpgradeAllPackages(context.Background()); err != nil {
 			pm.Out.PrintError("Failed to upgrade packages:\n%v", err)
 		} else {
 			pm.Out.PrintSuccess("All packages upgraded successfully.")

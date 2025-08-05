@@ -6,11 +6,13 @@ import (
 	"os"
 	"strings"
 
+	"context"
+
 	"github.com/tranquil-tr0/get/internal/github"
 	"github.com/tranquil-tr0/get/internal/tools"
 )
 
-func (pm *PackageManager) UpgradeAllPackages() error {
+func (pm *PackageManager) UpgradeAllPackages(ctx context.Context) error {
 	pendingUpdates, err := pm.GetAllPendingUpdates()
 	if err != nil {
 		pm.Out.PrintInfo("No pending updates available.")
@@ -22,7 +24,11 @@ func (pm *PackageManager) UpgradeAllPackages() error {
 	updateErrors := false
 	for pkgID := range pendingUpdates {
 		pm.Out.PrintStatus("Upgrading %s...", pkgID)
-		if updateErr := pm.UpgradeSpecificPackage(pkgID); updateErr != nil {
+		if updateErr := pm.UpgradeSpecificPackage(ctx, pkgID); updateErr != nil {
+			if updateErr == context.Canceled {
+				pm.Out.PrintInfo("Upgrade cancelled for %s", pkgID)
+				continue
+			}
 			pm.Out.PrintError("Error upgrading %s: %v", pkgID, updateErr)
 			updateErrors = true
 		} else {
@@ -42,7 +48,7 @@ func (pm *PackageManager) UpgradeAllPackages() error {
 	return nil
 }
 
-func (pm *PackageManager) UpgradeSpecificPackage(pkgID string) error {
+func (pm *PackageManager) UpgradeSpecificPackage(ctx context.Context, pkgID string) error {
 	pendingReleaseVersion, err := pm.GetPendingUpdate(pkgID)
 	if err != nil {
 		return fmt.Errorf("failed checking for pending updates: %s", err)
@@ -93,8 +99,11 @@ func (pm *PackageManager) UpgradeSpecificPackage(pkgID string) error {
 			scanner.Scan()
 			input := strings.TrimSpace(scanner.Text())
 			if strings.ToLower(input) == "n" {
-				selectedAsset, _, err := pm.SelectAssetInteractively(release)
+				selectedAsset, _, err := pm.SelectAssetInteractively(ctx, release)
 				if err != nil {
+					if err == context.Canceled {
+						return nil
+					}
 					return err
 				}
 				chosenAsset = selectedAsset
@@ -102,8 +111,11 @@ func (pm *PackageManager) UpgradeSpecificPackage(pkgID string) error {
 		}
 	} else {
 		fmt.Println("Saved asset not found in new release. Please select a new asset.")
-		selectedAsset, _, err := pm.SelectAssetInteractively(release)
+		selectedAsset, _, err := pm.SelectAssetInteractively(ctx, release)
 		if err != nil {
+			if err == context.Canceled {
+				return nil
+			}
 			return err
 		}
 		chosenAsset = selectedAsset
@@ -119,5 +131,5 @@ func (pm *PackageManager) UpgradeSpecificPackage(pkgID string) error {
 		return err
 	}
 
-	return pm.InstallVersion(pkgID, pendingReleaseVersion, chosenAsset)
+	return pm.InstallVersion(ctx, pkgID, pendingReleaseVersion, chosenAsset)
 }

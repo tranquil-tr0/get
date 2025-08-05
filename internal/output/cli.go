@@ -2,6 +2,7 @@ package output
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"os"
 	"strconv"
@@ -43,7 +44,7 @@ func (c *CLIOutput) PrintInfo(msg string, args ...any) {
 }
 
 // PromptAssetIndexSelection presents asset name lists to the user and returns the selected index.
-func (o *CLIOutput) PromptAssetIndexSelection(debNames, binaryNames, otherNames []string) (int, error) {
+func (o *CLIOutput) PromptAssetIndexSelection(ctx context.Context, debNames, binaryNames, otherNames []string) (idx int, err error) {
 	var allNames []string
 
 	fmt.Println("\nAvailable assets:")
@@ -65,10 +66,13 @@ func (o *CLIOutput) PromptAssetIndexSelection(debNames, binaryNames, otherNames 
 		return -1, fmt.Errorf("no installable assets")
 	}
 
-	fmt.Print("\nSelect an option (number): ")
+	fmt.Print("\nSelect an option by entering a number, or enter 'c' to cancel: ")
 	scanner := bufio.NewScanner(os.Stdin)
 	scanner.Scan()
 	input := strings.TrimSpace(scanner.Text())
+	if input == "c" || input == "C" || input == "" {
+		return -1, context.Canceled
+	}
 	choice, err := strconv.Atoi(input)
 	if err != nil || choice < 1 || choice > len(allNames) {
 		return -1, fmt.Errorf("invalid selection: %s", input)
