@@ -3,7 +3,6 @@ package manager
 import (
 	"fmt"
 	"os"
-	"os/exec"
 )
 
 func (pm *PackageManager) Remove(pkgID string) error {
@@ -54,8 +53,7 @@ func (pm *PackageManager) RemoveDebPackage(pkg PackageMetadata) error {
 		return fmt.Errorf("missing apt package name for .deb removal")
 	}
 
-	cmd := exec.Command("sudo", "apt", "remove", "-y", pkg.AptName)
-	cmdOutput, cmdErr := cmd.CombinedOutput()
+	cmdOutput, cmdErr := pm.Out.PromptElevatedCommand("Password required for package removal: ", "apt", "remove", "-y", pkg.AptName)
 	if cmdErr != nil {
 		return fmt.Errorf("failed to remove package: %v\nOutput: %s", cmdErr, cmdOutput)
 	}

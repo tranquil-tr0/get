@@ -3,6 +3,7 @@ package output
 import (
 	"context"
 	"fmt"
+	"os/exec"
 
 	qt "github.com/mappu/miqt/qt6"
 )
@@ -94,4 +95,9 @@ func (o *GUIOutput) PromptAssetIndexSelection(ctx context.Context, debNames, bin
 		}
 	}
 	return -1, fmt.Errorf("selected item not found in options")
+}
+
+func (o *GUIOutput) PromptElevatedCommand(prompt string, command string, args ...string) ([]byte, error) {
+	cmd := exec.Command("pkexec", append([]string{command}, args...)...)
+	return cmd.CombinedOutput()
 }

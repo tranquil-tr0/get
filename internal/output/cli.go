@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"strconv"
 	"strings"
 )
@@ -78,4 +79,10 @@ func (o *CLIOutput) PromptAssetIndexSelection(ctx context.Context, debNames, bin
 		return -1, fmt.Errorf("invalid selection: %s", input)
 	}
 	return choice - 1, nil
+}
+
+func (o *CLIOutput) PromptElevatedCommand(prompt string, command string, args ...string) ([]byte, error) {
+	prompt = "[get] " + prompt
+	cmd := exec.Command("sudo", append([]string{"-p", prompt, command}, args...)...)
+	return cmd.CombinedOutput()
 }

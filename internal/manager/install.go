@@ -157,16 +157,13 @@ func (pm *PackageManager) InstallDebPackage(pkgID string, release *github.Releas
 
 	// Install with dpkg
 	pm.Out.PrintStatus("Installing .deb package with dpkg...")
-	cmd := exec.Command("sudo", "-p", "[get] Password required for package installation: ", "dpkg", "-i", packagePath)
 
-	// Run dpkg installation
-	cmdOutput, dpkgErr := cmd.CombinedOutput()
+	cmdOutput, dpkgErr := pm.Out.PromptElevatedCommand("Password required for package installation: ", "dpkg", "-i", packagePath)
 
 	if dpkgErr != nil {
 		// If dpkg fails due to missing dependencies, try to fix with apt
 		if strings.Contains(string(cmdOutput), "dependency problems") {
-			fixCmd := exec.Command("sudo", "apt", "-f", "install", "-y")
-			fixOutput, fixErr := fixCmd.CombinedOutput()
+			fixOutput, fixErr := pm.Out.PromptElevatedCommand("Password required to fix dependencies: ", "apt", "-f", "install", "-y")
 			if fixErr != nil {
 				return fmt.Errorf("failed to fix dependencies: %v\nOutput: %s", fixErr, fixOutput)
 			}
@@ -261,9 +258,7 @@ func (pm *PackageManager) InstallBinary(pkgID string, release *github.Release, b
 			binaryExists = true
 
 			// First, move the existing binary to a backup location to avoid "Text file busy" error
-			mvCmd := exec.Command("sudo", "-p", "[get] Password required for binary installation: ", "mv", finalBinaryPath, backupPath)
-
-			mvOutput, mvErr := mvCmd.CombinedOutput()
+			mvOutput, mvErr := pm.Out.PromptElevatedCommand("Password required for binary installation: ", "mv", finalBinaryPath, backupPath)
 			if mvErr != nil {
 				return fmt.Errorf("failed to backup existing binary: %v\nOutput: %s", mvErr, mvOutput)
 			}
@@ -271,16 +266,14 @@ func (pm *PackageManager) InstallBinary(pkgID string, release *github.Release, b
 	}
 
 	// Copy the new binary
-	cmd := exec.Command("sudo", "-p", "[get] Password required for binary installation: ", "cp", tempBinaryPath, finalBinaryPath)
-
-	cmdOutput, installErr := cmd.CombinedOutput()
+	cmdOutput, installErr := pm.Out.PromptElevatedCommand("Password required for binary installation: ", "cp", tempBinaryPath, finalBinaryPath)
 	if installErr != nil {
 
 		// If installation failed and we had a backup (self-upgrade), try to restore it
 		if isSelfUpgrade && binaryExists {
-			restoreCmd := exec.Command("sudo", "mv", backupPath, finalBinaryPath)
-			if restoreErr := restoreCmd.Run(); restoreErr != nil {
-				return fmt.Errorf("failed to install binary and failed to restore backup: install error: %v, restore error: %v", installErr, restoreErr)
+			restoreOutput, restoreErr := pm.Out.PromptElevatedCommand("Password required to restore backup binary: ", "mv", backupPath, finalBinaryPath)
+			if restoreErr != nil {
+				return fmt.Errorf("failed to install binary and failed to restore backup: install error: %v, restore error: %v\nRestore output: %s", installErr, restoreErr, string(restoreOutput))
 			}
 		}
 
@@ -289,11 +282,10 @@ func (pm *PackageManager) InstallBinary(pkgID string, release *github.Release, b
 
 	// Installation successful, clean up backup if it exists (self-upgrade only)
 	if isSelfUpgrade && binaryExists {
-		rmCmd := exec.Command("sudo", "rm", backupPath)
-		if rmErr := rmCmd.Run(); rmErr != nil {
+		cmdOutput, rmErr := pm.Out.PromptElevatedCommand("Password required to clean up backup file: ", "sudo", "rm", backupPath)
+		if rmErr != nil {
 			// Don't fail the installation if cleanup fails, just warn
-			fmt.Printf("Warning: Failed to clean up backup file %s: %v\n", backupPath, rmErr)
-		} else {
+			pm.Out.PrintError("Warning: Failed to clean up backup file at %s: %v\n with output: %s", backupPath, rmErr, string(cmdOutput))
 		}
 	}
 
@@ -405,11 +397,9 @@ func (pm *PackageManager) GetPackageNameFromDeb(packagePath string) (string, err
 // RollbackInstallation removes a package if installation metadata update fails
 func (pm *PackageManager) RollbackInstallation(packageName string) error {
 
-	cmd := exec.Command("sudo", "dpkg", "--remove", packageName)
-
-	_, err := cmd.CombinedOutput()
+	cmdOutput, err := pm.Out.PromptElevatedCommand("Password required to roll back installation of "+packageName+": ", "sudo", "dpkg", "--remove", packageName)
 	if err != nil {
-		return fmt.Errorf("rollback failed: %v", err)
+		return fmt.Errorf("rollback failed: %v with output: %s", err, string(cmdOutput))
 	}
 
 	return nil
@@ -486,11 +476,9 @@ func (pm *PackageManager) GetBinaryName(pkgID, originalName string) string {
 // RollbackBinaryInstallation removes a binary installation
 func (pm *PackageManager) RollbackBinaryInstallation(binaryPath string) error {
 
-	cmd := exec.Command("sudo", "rm", "-f", binaryPath)
-
-	_, err := cmd.CombinedOutput()
+	cmdOutput, err := pm.Out.PromptElevatedCommand("Password required to roll back binary installation: ", "rm", "-f", binaryPath)
 	if err != nil {
-		return fmt.Errorf("binary rollback failed: %v", err)
+		return fmt.Errorf("binary rollback failed: %v with output: %s", err, string(cmdOutput))
 	}
 
 	return nil
