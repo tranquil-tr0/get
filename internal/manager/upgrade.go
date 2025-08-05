@@ -1,10 +1,7 @@
 package manager
 
 import (
-	"bufio"
 	"fmt"
-	"os"
-	"strings"
 
 	"context"
 
@@ -94,11 +91,11 @@ func (pm *PackageManager) UpgradeSpecificPackage(ctx context.Context, pkgID stri
 
 	if chosenAsset != nil {
 		if !pm.Yes {
-			fmt.Printf("Select \"%s\" as install asset? [Y/n]: ", chosenAsset.Name)
-			scanner := bufio.NewScanner(os.Stdin)
-			scanner.Scan()
-			input := strings.TrimSpace(scanner.Text())
-			if strings.ToLower(input) == "n" {
+			yes, err := pm.Out.PromptYesNo(fmt.Sprintf("Select \"%s\" as install asset?", chosenAsset.Name))
+			if err != nil {
+				return err
+			}
+			if !yes {
 				selectedAsset, _, err := pm.SelectAssetInteractively(ctx, release)
 				if err != nil {
 					if err == context.Canceled {

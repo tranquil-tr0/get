@@ -86,3 +86,19 @@ func (o *CLIOutput) PromptElevatedCommand(prompt string, command string, args ..
 	cmd := exec.Command("sudo", append([]string{"-p", prompt, command}, args...)...)
 	return cmd.CombinedOutput()
 }
+
+func (o *CLIOutput) PromptYesNo(msg string) (bool, error) {
+	fmt.Printf("%s [Y/n]: ", msg)
+	scanner := bufio.NewScanner(os.Stdin)
+	scanner.Scan()
+	input := strings.ToLower(strings.TrimSpace(scanner.Text()))
+	switch input {
+	case "", "y":
+		return true, nil
+	case "n":
+		return false, nil
+	default:
+		fmt.Printf("Invalid input: %s. Please enter 'y' or 'n'.\n", input)
+		return o.PromptYesNo(msg) // Retry the prompt
+	}
+}

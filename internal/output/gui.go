@@ -101,3 +101,19 @@ func (o *GUIOutput) PromptElevatedCommand(prompt string, command string, args ..
 	cmd := exec.Command("pkexec", append([]string{command}, args...)...)
 	return cmd.CombinedOutput()
 }
+
+func (o *GUIOutput) PromptYesNo(msg string) (bool, error) {
+	msgBox := qt.NewQMessageBox(o.window.QWidget)
+	msgBox.SetIcon(qt.QMessageBox__Question)
+	msgBox.SetWindowTitle("Question")
+	msgBox.SetText(msg)
+	msgBox.SetStandardButtons(qt.QMessageBox__Yes | qt.QMessageBox__No)
+	result := msgBox.Exec()
+
+	if result == int(qt.QMessageBox__Yes) {
+		return true, nil
+	} else if result == int(qt.QMessageBox__No) {
+		return false, nil
+	}
+	return false, fmt.Errorf("unexpected dialog result: %d", result)
+}

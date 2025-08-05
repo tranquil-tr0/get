@@ -20,4 +20,7 @@ type Output interface {
 
 	// PromptElevatedCommand executes a command with elevated privileges and returns the output and error
 	PromptElevatedCommand(prompt string, command string, args ...string) ([]byte, error)
+
+	// PromptYesNo presents a yes/no question to the user and returns their answer
+	PromptYesNo(msg string) (bool, error)
 }
