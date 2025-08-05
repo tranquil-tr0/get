@@ -7,3 +7,6 @@
 - allow upgrade just one package
 - mark packages
 - add version flag
+- improve cli asset selector to hide "other" type assets by default
+- dont log a package as installed in json until actually installed, etc
+- stop using pkexec
