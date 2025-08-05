@@ -10,3 +10,4 @@
 - improve cli asset selector to hide "other" type assets by default
 - dont log a package as installed in json until actually installed, etc
 - stop using pkexec
+- all the // TODO: <task>

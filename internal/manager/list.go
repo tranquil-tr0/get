@@ -16,6 +16,7 @@ func (pm *PackageManager) ListInstalledPackages() (map[string]PackageMetadata, e
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
+	// TODO: find out what kind of sort this is exactly
 
 	// Collect packages in sorted order into a new map
 	sortedMap := make(map[string]PackageMetadata, len(keys))

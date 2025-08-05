@@ -98,6 +98,7 @@ func main() {
 		}
 
 		// Show packages with pending updates at the top
+		// TODO: also highlight them or some other decoration
 		for pkgID, newVersion := range pendingUpdates {
 			if pkg, ok := packages[pkgID]; ok {
 				itemText := fmt.Sprintf("%s (Version: %s → %s) (%s) [Update Available]", pkgID, pkg.Version, newVersion, pkg.InstallType)
@@ -171,6 +172,7 @@ func main() {
 			updateText.WriteString(fmt.Sprintf("  %s: %s\n", pkgID, version))
 		}
 		pm.Out.PrintInfo(updateText.String())
+		refreshPackageList()
 	})
 
 	upgradeButton.OnClicked(func() {
