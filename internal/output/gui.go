@@ -18,11 +18,18 @@ func NewGUIOutput(window *qt.QMainWindow) *GUIOutput {
 	return &GUIOutput{window: window}
 }
 
-// PrintStatus prints an action message in a dialog.
+// PrintStatus prints an action message in the main window's status bar.
 func (o *GUIOutput) PrintStatus(msg string, args ...any) {
-	// TODO: Implement status bar for action messages
-	// Temporarily using console output for debugging
-	fmt.Printf("GUI Status: "+msg+"\n", args...)
+	if o.window == nil {
+		return
+	}
+	statusBar := o.window.StatusBar()
+	if statusBar == nil {
+		statusBar = qt.NewQStatusBar(o.window.QWidget)
+		o.window.SetStatusBar(statusBar)
+	}
+	out := fmt.Sprintf(msg, args...)
+	statusBar.ShowMessage(out)
 }
 
 // PrintSuccess prints a success message in a dialog.
