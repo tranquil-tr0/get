@@ -76,16 +76,17 @@ func main() {
 		Short: "List installed packages",
 		Long:  "Display a list of all packages installed through get.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			packages, err := pm.ListInstalledPackages()
+			sortedKeys, packages, err := pm.ListInstalledPackages()
 			if err != nil {
 				return err
 			}
 
-			if len(packages) == 0 {
+			if len(sortedKeys) == 0 {
 				pm.Out.PrintInfo("No packages installed.")
 			} else {
 				pm.Out.PrintInfo("Installed packages:")
-				for pkgID, pkg := range packages {
+				for _, pkgID := range sortedKeys {
+					pkg := packages[pkgID]
 					pm.Out.PrintInfo(" %s (Version: %s, Installed: %s)", pkgID, pkg.Version, pkg.InstalledAt)
 				}
 			}

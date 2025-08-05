@@ -4,45 +4,34 @@ import (
 	"sort"
 )
 
-func (pm *PackageManager) ListInstalledPackages() (map[string]PackageMetadata, error) {
+func (pm *PackageManager) ListInstalledPackages() ([]string, map[string]PackageMetadata, error) {
 	metadata, loadErr := pm.GetPackageManagerMetadata()
 	if loadErr != nil {
-		return nil, loadErr
+		return nil, nil, loadErr
 	}
 
-	// Extract and sort keys
-	keys := make([]string, 0, len(metadata.Packages))
+	// Extract and sort sortedKeys
+	sortedKeys := make([]string, 0, len(metadata.Packages))
 	for k := range metadata.Packages {
-		keys = append(keys, k)
+		sortedKeys = append(sortedKeys, k)
 	}
-	sort.Strings(keys)
-	// TODO: find out what kind of sort this is exactly
+	sort.Strings(sortedKeys)
 
-	// Collect packages in sorted order into a new map
-	sortedMap := make(map[string]PackageMetadata, len(keys))
-	for _, k := range keys {
-		sortedMap[k] = metadata.Packages[k]
-	}
-	return sortedMap, nil
+	return sortedKeys, metadata.Packages, nil
 }
 
-func (pm *PackageManager) ListInstalledPackagesAndPendingUpdates() (map[string]PackageMetadata, map[string]string, error) {
+func (pm *PackageManager) ListInstalledPackagesAndPendingUpdates() ([]string, map[string]PackageMetadata, map[string]string, error) {
 	metadata, err := pm.GetPackageManagerMetadata()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	// Extract and sort keys
-	keys := make([]string, 0, len(metadata.Packages))
+	sortedKeys := make([]string, 0, len(metadata.Packages))
 	for k := range metadata.Packages {
-		keys = append(keys, k)
+		sortedKeys = append(sortedKeys, k)
 	}
-	sort.Strings(keys)
+	sort.Strings(sortedKeys)
 
-	// Collect packages in sorted order into a new map
-	sortedMap := make(map[string]PackageMetadata, len(keys))
-	for _, k := range keys {
-		sortedMap[k] = metadata.Packages[k]
-	}
-	return sortedMap, metadata.PendingUpdates, nil
+	return sortedKeys, metadata.Packages, metadata.PendingUpdates, nil
 }

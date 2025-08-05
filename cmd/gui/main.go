@@ -87,30 +87,32 @@ func main() {
 
 	refreshPackageList := func() {
 		packageList.Clear()
-		packages, pendingUpdates, err := pm.ListInstalledPackagesAndPendingUpdates()
+		sortedKeys, packages, pendingUpdates, err := pm.ListInstalledPackagesAndPendingUpdates()
 		if err != nil {
 			pm.Out.PrintError("Failed to load package metadata:\n%v", err)
 			return
 		}
-		if len(packages) == 0 {
+		if len(sortedKeys) == 0 {
 			packageList.AddItem("No packages installed.")
 			return
 		}
 
-		// Show packages with pending updates at the top
-		// TODO: also highlight them or some other decoration
-		for pkgID, newVersion := range pendingUpdates {
-			if pkg, ok := packages[pkgID]; ok {
-				itemText := fmt.Sprintf("%s (Version: %s → %s) (%s) [Update Available]", pkgID, pkg.Version, newVersion, pkg.InstallType)
+		// Show packages with pending updates at the top, in sorted order
+		for _, pkgID := range sortedKeys {
+			newVersion, hasUpdate := pendingUpdates[pkgID]
+			pkg := packages[pkgID]
+			if hasUpdate {
+				itemText := fmt.Sprintf("%s v%s (%s) [Update Available to %s]", pkgID, pkg.Version, pkg.InstallType, newVersion)
 				packageList.AddItem(itemText)
 			}
 		}
-		// Show the rest (no pending updates)
-		for pkgID, pkg := range packages {
+		// Show the rest (no pending updates), in sorted order
+		for _, pkgID := range sortedKeys {
 			if _, hasUpdate := pendingUpdates[pkgID]; hasUpdate {
 				continue
 			}
-			itemText := fmt.Sprintf("%s (Version: %s) (%s)", pkgID, pkg.Version, pkg.InstallType)
+			pkg := packages[pkgID]
+			itemText := fmt.Sprintf("%s v%s (%s)", pkgID, pkg.Version, pkg.InstallType)
 			packageList.AddItem(itemText)
 		}
 	}
