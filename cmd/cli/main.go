@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/tranquil-tr0/get/internal/github"
 	"github.com/tranquil-tr0/get/internal/manager"
@@ -87,14 +86,7 @@ func main() {
 			} else {
 				pm.Out.PrintInfo("Installed packages:")
 				for pkgID, pkg := range packages {
-					parts := strings.Split(pkgID, "/")
-					var owner, repo string
-					if len(parts) >= 2 {
-						owner, repo = parts[0], parts[1]
-					} else {
-						owner, repo = pkgID, ""
-					}
-					pm.Out.PrintInfo(" %s/%s (Version: %s, Installed: %s)", owner, repo, pkg.Version, pkg.InstalledAt)
+					pm.Out.PrintInfo(" %s (Version: %s, Installed: %s)", pkgID, pkg.Version, pkg.InstalledAt)
 				}
 			}
 			return nil

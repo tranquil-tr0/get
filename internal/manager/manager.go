@@ -19,11 +19,12 @@ type PackageManager struct {
 }
 
 type PackageMetadata struct {
-	Version      string `json:"version"`
-	InstalledAt  string `json:"installed_at"`
-	AptName      string `json:"apt_name,omitempty"`      // For .deb packages
-	BinaryPath   string `json:"binary_path,omitempty"`   // For binary installations
-	InstallType  string `json:"install_type"`            // "deb" or "binary"
+	Version     string `json:"version"`
+	InstalledAt string `json:"installed_at"`
+	AptName     string `json:"apt_name,omitempty"`    // For .deb packages
+	BinaryPath  string `json:"binary_path,omitempty"` // For binary installations
+	InstallType string `json:"install_type"`          // "deb" or "binary" or "archive"
+	// TODO: add another field or make it archive-deb etc to mark the difference
 	OriginalName string `json:"original_name,omitempty"` // Original asset filename
 	ChosenAsset  string `json:"chosen_asset,omitempty"`
 	TagPrefix    string `json:"tag_prefix,omitempty"` // Tag prefix for filtering (e.g., "auth-", "photos-")
