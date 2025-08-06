@@ -1,14 +1,14 @@
 - support prereleases
-- better install logs
+- add install version flag
+- support github release links for specific version install
 - support direct links to autoupdating files like beeper and discord
-- consider supporting zips
 - replace tag name prefix filtering with tag name regex filtering instead
-- improve same file recognition
-- allow upgrade just one package
-- mark packages
-- add version flag
-- improve cli asset selector to hide "other" type assets by default
-- dont log a package as installed in json until actually installed, etc
+- support tag name filtering in gui
+- improve same file recognition when file name contains iterating version
+- make upgrade command in cli more like the pacstall -Up command (ask for each upgrade, -y to bypass)
+- dont log a package as installed in json until actually installed, same issue appears to exist in the upgrade code as well
 - stop using pkexec
 - all the // TODO: <task>
 - stop the gui from becoming frozen/unresponsive when executing task, such as by showing loading spinner instead
+- improve the look of things overall
+- support rpm
