@@ -104,6 +104,7 @@ func (c *Client) GetReleaseByTagWithOptions(pkgID, tag string, options *ReleaseO
 		release.Assets[i] = Asset{
 			Name:               asset.GetName(),
 			BrowserDownloadURL: asset.GetBrowserDownloadURL(),
+			ContentType:        asset.GetContentType(),
 		}
 	}
 
@@ -124,7 +125,7 @@ func (r *Release) FindFirstDebPackage() *Asset {
 func (r *Release) FindDebPackages() []Asset {
 	var debPackages []Asset
 	for _, asset := range r.Assets {
-		if strings.HasSuffix(asset.Name, ".deb") {
+		if (asset.ContentType == "application/octet-stream" || asset.ContentType == "application/vnd.debian.binary-package") && strings.HasSuffix(asset.Name, ".deb") {
 			debPackages = append(debPackages, asset)
 		}
 	}

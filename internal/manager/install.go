@@ -80,7 +80,8 @@ func (pm *PackageManager) InstallReleaseWithOptions(ctx context.Context, pkgID s
 
 	if preSelectedAsset != nil {
 		selectedAsset = preSelectedAsset
-		// Determine installType based on asset name or other properties if needed
+		// Determine installType based on asset name
+		// TODO: replace with downloading headers and checking mime type
 		if strings.HasSuffix(selectedAsset.Name, ".deb") {
 			installType = "deb"
 		} else {
@@ -115,8 +116,11 @@ func (pm *PackageManager) InstallReleaseWithOptions(ctx context.Context, pkgID s
 		return pm.InstallDebPackage(pkgID, release, selectedAsset, options)
 	case "binary":
 		return pm.InstallBinary(pkgID, release, selectedAsset, options)
+	case "other":
+		pm.Out.PrintInfo("Installing unidentified package type as binary", installType)
+		return pm.InstallBinary(pkgID, release, selectedAsset, options)
 	default:
-		return fmt.Errorf("unsupported installation type: %s", installType)
+		return fmt.Errorf("unknown install type: \"%s\", it may be missing", installType)
 	}
 }
 
