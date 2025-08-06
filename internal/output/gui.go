@@ -70,9 +70,6 @@ func (o *GUIOutput) PromptAssetIndexSelection(ctx context.Context, debNames, bin
 	for _, name := range binaryNames {
 		options = append(options, "[bin] "+name)
 	}
-	for _, name := range otherNames {
-		options = append(options, "[other] "+name)
-	}
 
 	if len(options) == 0 {
 		o.PrintError("No release packages found.")

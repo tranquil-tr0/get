@@ -5,10 +5,11 @@
 - replace tag name prefix filtering with tag name regex filtering instead
 - support tag name filtering in gui
 - improve same file recognition when file name contains iterating version
-- make upgrade command in cli more like the pacstall -Up command (ask for each upgrade, -y to bypass)
+- make upgrade command in cli accept package names afterward (get upgrade tranquil-tr0/get jj-vcs/jj)
 - dont log a package as installed in json until actually installed, same issue appears to exist in the upgrade code as well
 - stop using pkexec
 - all the // TODO: <task>
 - stop the gui from becoming frozen/unresponsive when executing task, such as by showing loading spinner instead
 - improve the look of things overall
 - support rpm
+- reimplement support archive extraction as binary
