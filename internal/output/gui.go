@@ -62,23 +62,19 @@ func (o *GUIOutput) PrintInfo(msg string, args ...any) {
 
 // PromptAssetIndexSelection presents asset name lists to the user in a dialog and returns the selected index.
 func (o *GUIOutput) PromptAssetIndexSelection(ctx context.Context, debNames, binaryNames, otherNames []string) (idx int, err error) {
-	var allNames []string
 	var options []string
 
 	for _, name := range debNames {
-		allNames = append(allNames, name)
 		options = append(options, "[deb] "+name)
 	}
 	for _, name := range binaryNames {
-		allNames = append(allNames, name)
 		options = append(options, "[bin] "+name)
 	}
 	for _, name := range otherNames {
-		allNames = append(allNames, name)
 		options = append(options, "[other] "+name)
 	}
 
-	if len(allNames) == 0 {
+	if len(options) == 0 {
 		o.PrintError("No release packages found.")
 		return -1, nil
 	}
