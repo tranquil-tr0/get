@@ -242,7 +242,7 @@ func main() {
 		for pkgID, version := range newUpdates {
 			updateText.WriteString(fmt.Sprintf("  %s: %s\n", pkgID, version))
 		}
-		pm.Out.PrintInfo(updateText.String())
+		pm.Out.PrintSuccess(updateText.String())
 		populatePackageList()
 	})
 

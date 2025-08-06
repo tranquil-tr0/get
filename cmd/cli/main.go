@@ -127,9 +127,9 @@ func main() {
 			}
 
 			if len(newUpdates) > 0 {
-				pm.Out.PrintInfo("Found new updates:")
+				pm.Out.PrintSuccess("Found new updates:")
 				for pkgID, version := range newUpdates {
-					pm.Out.PrintInfo("  %s: %s", pkgID, version)
+					pm.Out.PrintSuccess("  %s: %s", pkgID, version)
 				}
 			}
 
