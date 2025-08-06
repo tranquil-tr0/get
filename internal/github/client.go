@@ -30,6 +30,8 @@ type Release struct {
 type Asset struct {
 	Name               string `json:"name"`
 	BrowserDownloadURL string `json:"browser_download_url"`
+	// NOTE: ContentType is not a reliable detection method between binaries and even sometimes zips give "application/octet-stream"
+	ContentType string `json:"content_type"`
 }
 
 func NewClient() *Client {
@@ -108,7 +110,8 @@ func (c *Client) GetReleaseByTagWithOptions(pkgID, tag string, options *ReleaseO
 	return release, nil
 }
 
-func (r *Release) FindDebPackage() *Asset {
+// returns the first package in the release with a .deb extension
+func (r *Release) FindFirstDebPackage() *Asset {
 	for _, asset := range r.Assets {
 		if strings.HasSuffix(asset.Name, ".deb") {
 			return &asset
@@ -117,7 +120,7 @@ func (r *Release) FindDebPackage() *Asset {
 	return nil
 }
 
-// FindDebPackages returns all .deb packages in the release
+// FindDebPackages returns .deb packages in the release without requiring download of the assets
 func (r *Release) FindDebPackages() []Asset {
 	var debPackages []Asset
 	for _, asset := range r.Assets {
@@ -128,32 +131,20 @@ func (r *Release) FindDebPackages() []Asset {
 	return debPackages
 }
 
-// FindBinaryAssets returns assets that are likely Linux executables based on common patterns
+// FindBinaryAssets returns assets that are likely Linux executables without requiring download of the assets
 func (r *Release) FindBinaryAssets() []Asset {
+	// TODO: consider better detection logic
 	var binaries []Asset
-
-	// Extensions that are NOT binaries
-	nonBinaryExts := []string{
-		".deb", ".rpm", ".tar.gz", ".tgz", ".zip", ".tar.bz2", ".tar.xz",
-		".txt", ".md", ".json", ".yaml", ".yml", ".xml", ".html",
-		".sig", ".asc", ".sha256", ".sha512", ".checksum", ".exe", ".dll",
-	}
-
 	for _, asset := range r.Assets {
-		name := strings.ToLower(asset.Name)
-		isNonBinary := false
-		for _, ext := range nonBinaryExts {
-			if strings.HasSuffix(name, ext) {
-				isNonBinary = true
-				break
-			}
-		}
-
-		if !isNonBinary {
+		name := asset.Name
+		if asset.ContentType == "application/octet-stream" &&
+			(!strings.Contains(name, ".") ||
+				strings.HasSuffix(name, ".run") ||
+				strings.HasSuffix(name, ".bin")) {
 			binaries = append(binaries, asset)
 		}
+		// NOTE: ContentType is used to filter out text files etc
 	}
-
 	return binaries
 }
 

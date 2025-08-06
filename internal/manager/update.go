@@ -92,7 +92,7 @@ func (pm *PackageManager) updatePackageAndReturnNewVersion(pkgID string) (hasNew
 		}
 
 		if pkg.InstallType == "deb" {
-			debPackage := latestRelease.FindDebPackage()
+			debPackage := latestRelease.FindFirstDebPackage()
 			if debPackage == nil {
 				return hasNewUpdate, latestVersionString, fmt.Errorf("latest release for package installed from .deb file does not contain a .deb file")
 			}
