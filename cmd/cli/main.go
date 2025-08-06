@@ -141,9 +141,9 @@ func main() {
 			if len(newUpdates) == 0 && len(updates) == 0 {
 				pm.Out.PrintInfo("No updates available.")
 				return nil
+			} else {
+				pm.Out.PrintInfo("Available updates:")
 			}
-
-			pm.Out.PrintInfo("Available updates:")
 
 			for _, pkgID := range sortedKeys {
 				if newVersion, hasUpdate := updates[pkgID]; hasUpdate {

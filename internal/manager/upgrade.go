@@ -12,7 +12,7 @@ import (
 func (pm *PackageManager) UpgradeAllPackages(ctx context.Context) error {
 	pendingUpdates, err := pm.GetAllPendingUpdates()
 	if err != nil {
-		pm.Out.PrintInfo("No pending updates available.")
+		pm.Out.PrintInfo("No pending updates. Have you run update yet?")
 		return nil
 	}
 
