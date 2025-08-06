@@ -43,12 +43,11 @@ func main() {
 	installGroupBox.SetTitle("Install Package")
 	installLayout := qt.NewQHBoxLayout(nil)
 	installGroupBox.SetLayout(installLayout.QLayout)
-	installGroupBox.SetMaximumSize(qt.NewQSize2(16777215, 120))
-	installGroupBox.SetSizePolicy(*qt.NewQSizePolicy2(qt.QSizePolicy__Expanding, qt.QSizePolicy__Minimum))
+	installGroupBox.SetSizePolicy(*qt.NewQSizePolicy2(qt.QSizePolicy__Expanding, qt.QSizePolicy__Fixed))
 	layout.AddWidget(installGroupBox.QWidget)
 
 	repoInput := qt.NewQLineEdit(nil)
-	repoInput.SetPlaceholderText("Enter repository URL (e.g., tranquil-tr0/get)")
+	repoInput.SetPlaceholderText("Enter repository name or URL (e.g., tranquil-tr0/get, github.com/tranquil-tr0/get)")
 	installLayout.AddWidget(repoInput.QWidget)
 
 	installButton := qt.NewQPushButton(nil)
@@ -67,8 +66,10 @@ func main() {
 	packageListLayout := qt.NewQVBoxLayout(nil)
 	packageListLayout.SetSpacing(5) // Fixed spacing between package widgets
 	packageList.SetLayout(packageListLayout.QLayout)
-	// Set the package list to expand and fill available space
+	packageList.SetSizePolicy(*qt.NewQSizePolicy2(qt.QSizePolicy__Expanding, qt.QSizePolicy__Fixed))
 	listLayout.AddWidget(packageList)
+
+	listLayout.AddStretch()
 
 	refreshButton := qt.NewQPushButton(nil)
 	refreshButton.SetText("Refresh List")
@@ -77,8 +78,6 @@ func main() {
 	// --- Actions Section ---
 	actionsLayout := qt.NewQHBoxLayout(nil)
 	layout.AddLayout(actionsLayout.QLayout)
-
-	// Remove Selected button is no longer needed, as each package has its own Remove button
 
 	updateButton := qt.NewQPushButton(nil)
 	updateButton.SetText("Check for Updates")
@@ -153,23 +152,40 @@ func main() {
 	// Helper to add a package widget
 	addPackageWidget = func(pkgID string, pkg manager.PackageMetadata, updateVersion string) {
 		pkgWidget := qt.NewQWidget(nil)
-		// Apply style only to the card itself, not its children
 		pkgWidget.SetObjectName(*qt.NewQAnyStringView3("packageCard"))
-		pkgWidget.SetStyleSheet("#packageCard { background-color: palette(base); border: 2px solid palette(mid); border-radius: 6px; }")
+		pkgWidget.SetStyleSheet("#packageCard { background-color: palette(base); border: 2px solid palette(mid); border-radius: 10px; }")
 		hLayout := qt.NewQHBoxLayout(nil)
 		pkgWidget.SetLayout(hLayout.QLayout)
 
-		// Package info label
-		labelText := fmt.Sprintf("%s %s (%s)", pkgID, pkg.Version, pkg.InstallType)
-		label := qt.NewQLabel(nil)
-		label.SetText(labelText)
-		hLayout.AddWidget(label.QWidget)
+		// Inline label group for type, name, version
+		labelRow := qt.NewQWidget(nil)
+		labelLayout := qt.NewQHBoxLayout(nil)
+		labelLayout.SetSpacing(10)
+		labelRow.SetLayout(labelLayout.QLayout)
+		labelRow.SetSizePolicy(*qt.NewQSizePolicy2(qt.QSizePolicy__Fixed, qt.QSizePolicy__Fixed))
+
+		nameLabel := qt.NewQLabel(nil)
+		nameLabel.SetText(pkgID)
+		labelLayout.AddWidget(nameLabel.QWidget)
+
+		versionLabel := qt.NewQLabel(nil)
+		versionLabel.SetText(pkg.Version)
+		versionLabel.SetStyleSheet("color: palette(dark);")
+		labelLayout.AddWidget(versionLabel.QWidget)
+
+		typeLabel := qt.NewQLabel(nil)
+		typeLabel.SetText(fmt.Sprintf("(%s)", pkg.InstallType))
+		typeLabel.SetStyleSheet("color: palette(mid);")
+		labelLayout.AddWidget(typeLabel.QWidget)
+
+		hLayout.AddWidget(labelRow)
+		hLayout.AddStretch()
 
 		// If update available, add button
 		if updateVersion != "" {
 			updateBtn := qt.NewQPushButton(nil)
-			updateBtn.SetText(fmt.Sprintf("Update to %s", updateVersion))
-			updateBtn.SetSizePolicy(*qt.NewQSizePolicy2(qt.QSizePolicy__Minimum, qt.QSizePolicy__Fixed))
+			updateBtn.SetText(fmt.Sprintf("Upgrade to %s", updateVersion))
+			updateBtn.SetSizePolicy(*qt.NewQSizePolicy2(qt.QSizePolicy__Fixed, qt.QSizePolicy__Fixed))
 			updateBtn.OnClicked(func() {
 				upgradePackageButtonClick(pkgID)
 			})
@@ -179,7 +195,7 @@ func main() {
 		// Remove button
 		removeBtn := qt.NewQPushButton(nil)
 		removeBtn.SetText("Remove")
-		removeBtn.SetSizePolicy(*qt.NewQSizePolicy2(qt.QSizePolicy__Preferred, qt.QSizePolicy__Fixed))
+		removeBtn.SetSizePolicy(*qt.NewQSizePolicy2(qt.QSizePolicy__Fixed, qt.QSizePolicy__Fixed))
 		removeBtn.OnClicked(func() {
 			if err := pm.Remove(pkgID); err != nil {
 				pm.Out.PrintError("Failed to remove package:\n%v", err)
@@ -205,7 +221,7 @@ func main() {
 
 		if err := pm.InstallWithOptions(context.Background(), pkgID, "", nil); err != nil {
 			if err == context.Canceled {
-				// User cancelled, do nothing
+				// User cancelled, don't show error
 				return
 			}
 			pm.Out.PrintError("Failed to install package:\n%v", err)

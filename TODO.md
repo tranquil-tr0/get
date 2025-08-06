@@ -11,3 +11,4 @@
 - dont log a package as installed in json until actually installed, etc
 - stop using pkexec
 - all the // TODO: <task>
+- stop the gui from becoming frozen/unresponsive when executing task, such as by showing loading spinner instead
