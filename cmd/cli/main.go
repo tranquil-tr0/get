@@ -64,7 +64,7 @@ func main() {
 		},
 	}
 	installCmd.Flags().StringP("release", "r", "", "Specify a release version to install")
-	installCmd.Flags().StringP("tag-prefix", "t", "", "Specify tag prefix for package variants (e.g., \"auth-\" for auth-v1.0.0 tags)")
+	installCmd.Flags().StringP("tag-prefix", "t", "", "Omit releases without the prefix in the release tag (e.g., use \"auth-\" to omit version \"photo-v1.0.0\") -- useful for monorepos")
 	rootCmd.AddCommand(installCmd)
 
 	// List command
