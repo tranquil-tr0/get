@@ -45,7 +45,7 @@ func (c *CLIOutput) PrintInfo(msg string, args ...any) {
 }
 
 // PromptAssetIndexSelection presents asset name lists to the user and returns the selected index.
-func (o *CLIOutput) PromptAssetIndexSelection(ctx context.Context, debNames, binaryNames, otherNames []string) (idx int, err error) {
+func (o *CLIOutput) PromptAssetIndexSelection(ctx context.Context, debNames, binaryNames, archiveNames, otherNames []string) (idx int, err error) {
 	var allNames []string
 
 	fmt.Println("\nAvailable assets:")
@@ -57,7 +57,10 @@ func (o *CLIOutput) PromptAssetIndexSelection(ctx context.Context, debNames, bin
 		allNames = append(allNames, name)
 		fmt.Printf("  [%d] [bin] %s\n", len(allNames), name)
 	}
-	// showOther variable removed (was unused)
+	for _, name := range archiveNames {
+		allNames = append(allNames, name)
+		fmt.Printf("  [%d] [zip] %s\n", len(allNames), name)
+	}
 
 	otherShown := false
 	if len(otherNames) > 0 {

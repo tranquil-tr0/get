@@ -128,7 +128,7 @@ func (r *Release) FindFirstDebPackage() *Asset {
 func (r *Release) FindDebPackages() []Asset {
 	var debPackages []Asset
 	for _, asset := range r.Assets {
-		if (asset.ContentType == "application/octet-stream" || asset.ContentType == "application/vnd.debian.binary-package") && strings.HasSuffix(asset.Name, ".deb") {
+		if strings.HasSuffix(asset.Name, ".deb") {
 			debPackages = append(debPackages, asset)
 		}
 	}
@@ -144,12 +144,24 @@ func (r *Release) FindBinaryAssets() []Asset {
 		if (asset.ContentType == "application/octet-stream" || asset.ContentType == "application/x-executable") &&
 			(!strings.Contains(name, ".") ||
 				strings.HasSuffix(name, ".run") ||
-				strings.HasSuffix(name, ".bin")) {
+				strings.HasSuffix(name, ".bin") ||
+				strings.HasSuffix(name, ".exe")) {
 			binaries = append(binaries, asset)
 		}
 		// NOTE: ContentType is used to filter out text files etc
 	}
 	return binaries
+}
+
+func (r *Release) FindArchiveAssets() []Asset {
+	var archives []Asset
+	for _, asset := range r.Assets {
+		if strings.HasSuffix(asset.Name, ".tar.gz") || strings.HasSuffix(asset.Name, ".tar") ||
+			strings.HasSuffix(asset.Name, ".zip") || strings.HasSuffix(asset.Name, ".gz") {
+			archives = append(archives, asset)
+		}
+	}
+	return archives
 }
 
 // GetAllInstallableAssets returns both .deb packages and potential binary assets

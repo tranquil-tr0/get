@@ -61,7 +61,7 @@ func (o *GUIOutput) PrintInfo(msg string, args ...any) {
 }
 
 // PromptAssetIndexSelection presents asset name lists to the user in a dialog and returns the selected index.
-func (o *GUIOutput) PromptAssetIndexSelection(ctx context.Context, debNames, binaryNames, otherNames []string) (idx int, err error) {
+func (o *GUIOutput) PromptAssetIndexSelection(ctx context.Context, debNames, binaryNames, archiveNames, otherNames []string) (idx int, err error) {
 	var options []string
 
 	for _, name := range debNames {
@@ -69,6 +69,9 @@ func (o *GUIOutput) PromptAssetIndexSelection(ctx context.Context, debNames, bin
 	}
 	for _, name := range binaryNames {
 		options = append(options, "[bin] "+name)
+	}
+	for _, name := range archiveNames {
+		options = append(options, "[zip] "+name)
 	}
 
 	if len(options) == 0 {

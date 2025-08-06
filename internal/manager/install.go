@@ -22,13 +22,17 @@ import (
 func (pm *PackageManager) SelectAssetInteractively(ctx context.Context, release *github.Release) (selectedAsset *github.Asset, typ string, err error) {
 	debPackages := release.FindDebPackages()
 	binaryAssets := release.FindBinaryAssets()
-	// Other assets: not deb or binary
+	archiveAssets := release.FindArchiveAssets()
+	// Other assets: not deb, binary, or archive
 	var otherAssets []github.Asset
 	assetMap := make(map[string]struct{})
 	for _, a := range debPackages {
 		assetMap[a.Name] = struct{}{}
 	}
 	for _, a := range binaryAssets {
+		assetMap[a.Name] = struct{}{}
+	}
+	for _, a := range archiveAssets {
 		assetMap[a.Name] = struct{}{}
 	}
 	for _, asset := range release.Assets {
@@ -46,27 +50,38 @@ func (pm *PackageManager) SelectAssetInteractively(ctx context.Context, release 
 	for i, a := range binaryAssets {
 		binaryNames[i] = a.Name
 	}
+	archiveNames := make([]string, len(archiveAssets))
+	for i, a := range archiveAssets {
+		archiveNames[i] = a.Name
+	}
 	otherNames := make([]string, len(otherAssets))
 	for i, a := range otherAssets {
 		otherNames[i] = a.Name
 	}
 
-	idx, err := pm.Out.PromptAssetIndexSelection(ctx, debNames, binaryNames, otherNames)
+	idx, err := pm.Out.PromptAssetIndexSelection(ctx, debNames, binaryNames, archiveNames, otherNames)
 	if err != nil {
 		return nil, "", err
 	}
-	if idx < 0 || idx >= len(debPackages)+len(binaryAssets)+len(otherAssets) {
+	totalDeb := len(debPackages)
+	totalBin := len(binaryAssets)
+	totalArchive := len(archiveAssets)
+	totalOth := len(otherAssets)
+	total := totalDeb + totalBin + totalArchive + totalOth
+	if idx < 0 || idx >= total {
 		return nil, "", fmt.Errorf("invalid asset index: %d", idx)
 	}
-
-	if idx < len(debPackages) {
+	if idx < totalDeb {
 		selectedAsset = &debPackages[idx]
 		typ = "deb"
-	} else if idx < len(debPackages)+len(binaryAssets) {
-		selectedAsset = &binaryAssets[idx-len(debPackages)]
+	} else if idx < totalDeb+totalBin {
+		selectedAsset = &binaryAssets[idx-totalDeb]
 		typ = "binary"
-	} else if idx < len(debPackages)+len(binaryAssets)+len(otherAssets) {
-		selectedAsset = &otherAssets[idx-len(debPackages)-len(binaryAssets)]
+	} else if idx < totalDeb+totalBin+totalArchive {
+		selectedAsset = &archiveAssets[idx-totalDeb-totalBin]
+		typ = "archive"
+	} else if idx < totalDeb+totalBin+totalArchive+totalOth {
+		selectedAsset = &otherAssets[idx-totalDeb-totalBin-totalArchive]
 		typ = "other"
 	} else {
 		return nil, "", fmt.Errorf("invalid asset index: %d", idx)

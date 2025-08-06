@@ -16,7 +16,7 @@ type Output interface {
 	PrintInfo(msg string, args ...any)
 
 	// PromptAssetIndexSelection presents asset name lists and returns the selected index
-	PromptAssetIndexSelection(ctx context.Context, debNames, binaryNames, otherNames []string) (idx int, err error)
+	PromptAssetIndexSelection(ctx context.Context, debNames, binaryNames, archiveNames, otherNames []string) (idx int, err error)
 
 	// PromptElevatedCommand executes a command with elevated privileges and returns the output and error
 	PromptElevatedCommand(prompt string, command string, args ...string) ([]byte, error)
