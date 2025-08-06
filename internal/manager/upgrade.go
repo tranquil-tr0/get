@@ -18,7 +18,7 @@ func (pm *PackageManager) UpgradeAllPackages(ctx context.Context) error {
 
 	pm.Out.PrintInfo("Found %d pending updates.", len(pendingUpdates))
 
-	updateErrors := false
+	upgradeErrors := false
 	for pkgID := range pendingUpdates {
 		pm.Out.PrintStatus("Upgrading %s...", pkgID)
 		if updateErr := pm.UpgradeSpecificPackage(ctx, pkgID); updateErr != nil {
@@ -27,7 +27,7 @@ func (pm *PackageManager) UpgradeAllPackages(ctx context.Context) error {
 				continue
 			}
 			pm.Out.PrintError("Error upgrading %s: %v", pkgID, updateErr)
-			updateErrors = true
+			upgradeErrors = true
 		} else {
 			pm.Out.PrintSuccess("Successfully upgraded %s", pkgID)
 		}
@@ -38,7 +38,7 @@ func (pm *PackageManager) UpgradeAllPackages(ctx context.Context) error {
 		return fmt.Errorf("failed to reload metadata: %v", err)
 	}
 
-	if len(metadata.PendingUpdates) > 0 && updateErrors {
+	if len(metadata.PendingUpdates) > 0 && upgradeErrors {
 		return fmt.Errorf("some packages could not be upgraded")
 	}
 
