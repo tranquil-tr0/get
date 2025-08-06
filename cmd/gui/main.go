@@ -71,10 +71,6 @@ func main() {
 
 	listLayout.AddStretch()
 
-	refreshButton := qt.NewQPushButton(nil)
-	refreshButton.SetText("Refresh List")
-	listLayout.AddWidget(refreshButton.QWidget)
-
 	// --- Actions Section ---
 	actionsLayout := qt.NewQHBoxLayout(nil)
 	layout.AddLayout(actionsLayout.QLayout)
@@ -86,10 +82,6 @@ func main() {
 	upgradeAllPackagesButton := qt.NewQPushButton(nil)
 	upgradeAllPackagesButton.SetText("Upgrade All")
 	actionsLayout.AddWidget(upgradeAllPackagesButton.QWidget)
-
-	updateAllPackagesButton := qt.NewQPushButton(nil)
-	updateAllPackagesButton.SetText("Update All Packages")
-	actionsLayout.AddWidget(updateAllPackagesButton.QWidget)
 
 	// --- Functionality ---
 
@@ -190,6 +182,7 @@ func main() {
 				upgradePackageButtonClick(pkgID)
 			})
 			hLayout.AddWidget(updateBtn.QWidget)
+			pkgWidget.SetStyleSheet("#packageCard { background-color: palette(base); border: 2px solid palette(dark); border-radius: 10px; }")
 		}
 
 		// Remove button
@@ -233,19 +226,20 @@ func main() {
 	})
 
 	updateButton.OnClicked(func() {
-		updates, err := pm.UpdateAllPackages()
+		pm.Out.PrintStatus("Checking for updates...")
+		newUpdates, err := pm.UpdateAllPackages()
 		if err != nil {
-			pm.Out.PrintError("Failed to check for updates:\n%v", err)
+			pm.Out.PrintError("%v", err)
 		}
 
-		if len(updates) == 0 {
+		if len(newUpdates) == 0 {
 			pm.Out.PrintInfo("No updates available.")
 			return
 		}
 
 		var updateText strings.Builder
-		updateText.WriteString(fmt.Sprintf("Found %d updates:\n", len(updates)))
-		for pkgID, version := range updates {
+		updateText.WriteString(fmt.Sprintf("Found %d new updates:\n", len(newUpdates)))
+		for pkgID, version := range newUpdates {
 			updateText.WriteString(fmt.Sprintf("  %s: %s\n", pkgID, version))
 		}
 		pm.Out.PrintInfo(updateText.String())
@@ -259,10 +253,6 @@ func main() {
 			pm.Out.PrintSuccess("All packages upgraded successfully.")
 			populatePackageList()
 		}
-	})
-
-	refreshButton.OnClicked(func() {
-		populatePackageList()
 	})
 
 	// Initial load

@@ -21,9 +21,9 @@ func (pm *PackageManager) ListInstalledPackages() ([]string, map[string]PackageM
 }
 
 func (pm *PackageManager) ListInstalledPackagesAndPendingUpdates() ([]string, map[string]PackageMetadata, map[string]string, error) {
-	metadata, err := pm.GetPackageManagerMetadata()
-	if err != nil {
-		return nil, nil, nil, err
+	metadata, loadErr := pm.GetPackageManagerMetadata()
+	if loadErr != nil {
+		return nil, nil, nil, loadErr
 	}
 
 	// Extract and sort keys

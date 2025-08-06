@@ -9,14 +9,15 @@ import (
 )
 
 // UpdateAllPackages returns new updates for all installed packages and updates that could not be checked and updates Metadata
-func (pm *PackageManager) UpdateAllPackages() (updates map[string]string, err error) {
+func (pm *PackageManager) UpdateAllPackages() (newUpdates map[string]string, err error) {
 
+	//TODO: consider not returning new updates
 	metadata, err := pm.GetPackageManagerMetadata()
 	if err != nil {
 		return nil, fmt.Errorf("failed to load metadata: %v", err)
 	}
 
-	updates = make(map[string]string)
+	newUpdates = make(map[string]string)
 	var failedPackages []string
 
 	for pkgID := range metadata.Packages {
@@ -27,15 +28,15 @@ func (pm *PackageManager) UpdateAllPackages() (updates map[string]string, err er
 		}
 
 		if hasNewUpdate {
-			updates[pkgID] = latestVersionString
+			newUpdates[pkgID] = latestVersionString
 		}
 	}
 
 	if len(failedPackages) > 0 {
-		return updates, fmt.Errorf("failed to check updates for %d package(s): %v", len(failedPackages), failedPackages)
+		return newUpdates, fmt.Errorf("failed to check updates for %d package(s): %s", len(failedPackages), strings.Join(failedPackages, ", "))
 	}
 
-	return updates, nil
+	return newUpdates, nil
 }
 
 // updatePackageAndReturnNewVersion marks a package update if it hasn't already been marked
@@ -93,16 +94,16 @@ func (pm *PackageManager) updatePackageAndReturnNewVersion(pkgID string) (hasNew
 		if pkg.InstallType == "deb" {
 			debPackage := latestRelease.FindDebPackage()
 			if debPackage == nil {
-				return hasNewUpdate, latestVersionString, fmt.Errorf("latest release does not contain a .deb file")
+				return hasNewUpdate, latestVersionString, fmt.Errorf("latest release for package installed from .deb file does not contain a .deb file")
 			}
 		}
 
 		updateVersion, err := pm.GetPendingUpdate(pkgID)
 		if err != nil {
-			return hasNewUpdate, latestVersionString, fmt.Errorf("error checking for existing updates: %s", err)
+			return hasNewUpdate, latestVersionString, fmt.Errorf("error checking for existing update: %s", err)
 		}
 
-		if updateVersion == "" {
+		if updateVersion == "" || updateVersion != latestRelease.TagName {
 			hasNewUpdate = true
 			metadata.PendingUpdates[pkgID] = latestRelease.TagName
 			if err := pm.WritePackageManagerMetadata(metadata); err != nil {

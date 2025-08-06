@@ -33,9 +33,6 @@ func main() {
 		Long:    "A package manager for GitHub releases that helps you install and manage packages from GitHub without worrying about leaving unupdated packages on your system.",
 	}
 
-	// Add persistent verbose flag that works for all commands
-	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "Enable verbose output")
-
 	// Install command
 	installCmd := &cobra.Command{
 		Use:   "install <github-repo-url> (or <user>/<repo>)",
@@ -124,20 +121,35 @@ func main() {
 		Short: "Check for package updates",
 		Long:  "Check for available updates of installed packages",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			updates, err := pm.UpdateAllPackages()
+			newUpdates, err := pm.UpdateAllPackages()
 			if err != nil {
-				return err
+				pm.Out.PrintError("%v", err)
 			}
 
-			if len(updates) == 0 {
+			if len(newUpdates) > 0 {
+				pm.Out.PrintInfo("Found new updates:")
+				for pkgID, version := range newUpdates {
+					pm.Out.PrintInfo("  %s: %s", pkgID, version)
+				}
+			}
+
+			sortedKeys, packages, updates, err := pm.ListInstalledPackagesAndPendingUpdates()
+			if err != nil {
+				return fmt.Errorf("failed while getting updates: %v", err)
+			}
+
+			if len(newUpdates) == 0 && len(updates) == 0 {
 				pm.Out.PrintInfo("No updates available.")
 				return nil
 			}
 
 			pm.Out.PrintInfo("Available updates:")
-			for pkgID, version := range updates {
-				pm.Out.PrintInfo("  %s: %s", pkgID, version)
-				// TODO: add update available from version to version
+
+			for _, pkgID := range sortedKeys {
+				if newVersion, hasUpdate := updates[pkgID]; hasUpdate {
+					pkg := packages[pkgID]
+					pm.Out.PrintInfo("  %s: %s → %s", pkgID, pkg.Version, newVersion)
+				}
 			}
 			return nil
 		},
