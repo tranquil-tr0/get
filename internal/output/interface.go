@@ -6,13 +6,13 @@ import "context"
 // with optional formatting arguments.
 
 type Output interface {
-	// PrintStatus prints a message explaining what the program is doing with optional arguments
+	// PrintStatus shows a message explaining what the program is doing
 	PrintStatus(msg string, args ...any)
-	// PrintSuccess prints a success message with optional arguments
+	// PrintSuccess shows a success message, such as after an action completes
 	PrintSuccess(msg string, args ...any)
-	// PrintError prints an error message with optional arguments
+	// PrintError shows an error message
 	PrintError(msg string, args ...any)
-	// PrintInfo prints an informational message with optional arguments
+	// PrintInfo notifies the user of some information, such as the results of an action or other important information
 	PrintInfo(msg string, args ...any)
 
 	// PromptAssetIndexSelection presents asset name lists and returns the selected index
