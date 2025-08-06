@@ -1,6 +1,9 @@
 package manager
 
 import (
+	"archive/tar"
+	"archive/zip"
+	"compress/gzip"
 	"context"
 	"fmt"
 	"io"
@@ -9,6 +12,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/h2non/filetype"
 
 	"github.com/tranquil-tr0/get/internal/github"
 )
@@ -89,6 +94,8 @@ func (pm *PackageManager) InstallReleaseWithOptions(ctx context.Context, pkgID s
 			installType = "deb"
 		case "application/x-executable":
 			installType = "binary"
+		case "application/gzip", "application/x-tar", "application/zip":
+			installType = "archive"
 		default:
 			installType = "other"
 		}
@@ -121,12 +128,97 @@ func (pm *PackageManager) InstallReleaseWithOptions(ctx context.Context, pkgID s
 		return pm.InstallDebPackage(pkgID, release, selectedAsset, options)
 	case "binary":
 		return pm.InstallBinary(pkgID, release, selectedAsset, options)
+	case "archive":
+		return pm.InstallArchive(pkgID, release, selectedAsset, options)
 	case "other":
 		pm.Out.PrintInfo("Installing unidentified package type as binary", installType)
 		return pm.InstallBinary(pkgID, release, selectedAsset, options)
 	default:
 		return fmt.Errorf("unknown install type: \"%s\", it may be missing", installType)
 	}
+}
+
+// InstallArchive handles installation from an archive asset (zip, tar.gz, tar, gz)
+func (pm *PackageManager) InstallArchive(pkgID string, release *github.Release, archiveAsset *github.Asset, options *github.ReleaseOptions) error {
+	pm.Out.PrintStatus("Downloading archive: %s", archiveAsset.Name)
+	resp, httpErr := http.Get(archiveAsset.BrowserDownloadURL)
+	if httpErr != nil {
+		return fmt.Errorf("failed to download archive: %v", httpErr)
+	}
+	defer resp.Body.Close()
+
+	tempDir, tempErr := os.MkdirTemp("", "get-archive-*")
+	if tempErr != nil {
+		return fmt.Errorf("failed to create temp dir: %v", tempErr)
+	}
+	defer os.RemoveAll(tempDir)
+
+	archivePath := filepath.Join(tempDir, archiveAsset.Name)
+	file, createErr := os.Create(archivePath)
+	if createErr != nil {
+		return fmt.Errorf("failed to create archive file: %v", createErr)
+	}
+	_, copyErr := io.Copy(file, resp.Body)
+	file.Close()
+	if copyErr != nil {
+		return fmt.Errorf("failed to save archive: %v", copyErr)
+	}
+
+	extractedDir := filepath.Join(tempDir, "extracted")
+	if err := os.Mkdir(extractedDir, 0755); err != nil {
+		return fmt.Errorf("failed to create extraction dir: %v", err)
+	}
+	err := pm.ExtractArchive(archivePath, extractedDir)
+	if err != nil {
+		return fmt.Errorf("failed to extract archive: %v", err)
+	}
+
+	var debAssetPath, binaryAssetPath string
+	err = filepath.Walk(extractedDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil || info.IsDir() {
+			return nil
+		}
+		file, openErr := os.Open(path)
+		if openErr != nil {
+			return nil
+		}
+		defer file.Close()
+		buf := make([]byte, 262)
+		_, readErr := file.Read(buf)
+		if readErr != nil {
+			return nil
+		}
+		kind, kindErr := filetype.Match(buf)
+		if kindErr != nil {
+			return nil
+		}
+		if kind.MIME.Value == "application/vnd.debian.binary-package" && debAssetPath == "" {
+			debAssetPath = path
+		} else if kind.MIME.Value == "application/x-executable" && binaryAssetPath == "" {
+			binaryAssetPath = path
+		}
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("error scanning extracted files: %v", err)
+	}
+
+	if debAssetPath != "" {
+		pm.Out.PrintStatus("Found .deb package in archive: %s", filepath.Base(debAssetPath))
+		asset := &github.Asset{
+			Name:               filepath.Base(debAssetPath),
+			BrowserDownloadURL: "file://" + debAssetPath,
+		}
+		return pm.InstallDebPackage(pkgID, release, asset, options)
+	} else if binaryAssetPath != "" {
+		pm.Out.PrintStatus("Found binary in archive: %s", filepath.Base(binaryAssetPath))
+		asset := &github.Asset{
+			Name:               filepath.Base(binaryAssetPath),
+			BrowserDownloadURL: "file://" + binaryAssetPath,
+		}
+		return pm.InstallBinary(pkgID, release, asset, options)
+	}
+	return fmt.Errorf("no installable .deb or binary found in archive")
 }
 
 // InstallDebPackage handles .deb package installation
@@ -250,7 +342,7 @@ func (pm *PackageManager) InstallBinary(pkgID string, release *github.Release, b
 	}
 
 	// Determine final binary name and path
-	binaryName := pm.GetBinaryName(pkgID, binaryAsset.Name)
+	binaryName := binaryAsset.Name
 	finalBinaryPath := filepath.Join("/usr/local/bin", binaryName)
 
 	// Install binary to /usr/local/bin
@@ -449,39 +541,6 @@ func (pm *PackageManager) UpdatePackageMetadata(pkgID string, release *github.Re
 	return nil
 }
 
-// GetBinaryName determines the final binary name for installation
-func (pm *PackageManager) GetBinaryName(pkgID, originalName string) string {
-	parts := strings.Split(pkgID, "/")
-	if len(parts) >= 2 {
-		repoName := parts[1]
-
-		// If the original name is just the repo name or similar, use it
-		baseName := filepath.Base(originalName)
-
-		// Remove common suffixes that might indicate architecture/platform
-		suffixes := []string{"-linux", "-x86_64", "-amd64", "-gnu", ".exe"}
-		for _, suffix := range suffixes {
-			baseName = strings.TrimSuffix(baseName, suffix)
-		}
-
-		// If the cleaned name is similar to repo name, prefer the original
-		if strings.Contains(strings.ToLower(baseName), strings.ToLower(repoName)) {
-			return baseName
-		}
-
-		// Otherwise, use repo name
-		return repoName
-	}
-
-	// Fallback to cleaned original name
-	baseName := filepath.Base(originalName)
-	suffixes := []string{"-linux", "-x86_64", "-amd64", "-gnu", ".exe"}
-	for _, suffix := range suffixes {
-		baseName = strings.TrimSuffix(baseName, suffix)
-	}
-	return baseName
-}
-
 // RollbackBinaryInstallation removes a binary installation
 func (pm *PackageManager) RollbackBinaryInstallation(binaryPath string) error {
 
@@ -490,5 +549,132 @@ func (pm *PackageManager) RollbackBinaryInstallation(binaryPath string) error {
 		return fmt.Errorf("binary rollback failed: %v with output: %s", err, string(cmdOutput))
 	}
 
+	return nil
+}
+
+// ExtractArchive extracts supported archive types (zip, tar.gz, tar, gz) to destDir
+func (pm *PackageManager) ExtractArchive(archivePath, destDir string) error {
+	lower := strings.ToLower(archivePath)
+	if strings.HasSuffix(lower, ".zip") {
+		return pm.extractZip(archivePath, destDir)
+	} else if strings.HasSuffix(lower, ".tar.gz") || strings.HasSuffix(lower, ".tgz") {
+		return pm.extractTarGz(archivePath, destDir)
+	} else if strings.HasSuffix(lower, ".tar") {
+		return pm.extractTar(archivePath, destDir)
+	} else if strings.HasSuffix(lower, ".gz") {
+		return pm.extractGz(archivePath, destDir)
+	}
+	return fmt.Errorf("unsupported archive type: %s", archivePath)
+}
+
+func (pm *PackageManager) extractZip(archivePath, destDir string) error {
+	r, err := zip.OpenReader(archivePath)
+	if err != nil {
+		return err
+	}
+	defer r.Close()
+	for _, f := range r.File {
+		fpath := filepath.Join(destDir, f.Name)
+		if f.FileInfo().IsDir() {
+			os.MkdirAll(fpath, 0755)
+			continue
+		}
+		if err := os.MkdirAll(filepath.Dir(fpath), 0755); err != nil {
+			return err
+		}
+		outFile, err := os.OpenFile(fpath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, f.Mode())
+		if err != nil {
+			return err
+		}
+		rc, err := f.Open()
+		if err != nil {
+			outFile.Close()
+			return err
+		}
+		_, err = io.Copy(outFile, rc)
+		outFile.Close()
+		rc.Close()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (pm *PackageManager) extractTarGz(archivePath, destDir string) error {
+	f, err := os.Open(archivePath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	gz, err := gzip.NewReader(f)
+	if err != nil {
+		return err
+	}
+	defer gz.Close()
+	return pm.extractTarStream(gz, destDir)
+}
+
+func (pm *PackageManager) extractTar(archivePath, destDir string) error {
+	f, err := os.Open(archivePath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	return pm.extractTarStream(f, destDir)
+}
+
+func (pm *PackageManager) extractGz(archivePath, destDir string) error {
+	f, err := os.Open(archivePath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	gz, err := gzip.NewReader(f)
+	if err != nil {
+		return err
+	}
+	defer gz.Close()
+	outPath := filepath.Join(destDir, strings.TrimSuffix(filepath.Base(archivePath), ".gz"))
+	outFile, err := os.Create(outPath)
+	if err != nil {
+		return err
+	}
+	defer outFile.Close()
+	_, err = io.Copy(outFile, gz)
+	return err
+}
+
+func (pm *PackageManager) extractTarStream(r io.Reader, destDir string) error {
+	tr := tar.NewReader(r)
+	for {
+		hdr, err := tr.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return err
+		}
+		fpath := filepath.Join(destDir, hdr.Name)
+		switch hdr.Typeflag {
+		case tar.TypeDir:
+			if err := os.MkdirAll(fpath, 0755); err != nil {
+				return err
+			}
+		case tar.TypeReg:
+			if err := os.MkdirAll(filepath.Dir(fpath), 0755); err != nil {
+				return err
+			}
+			outFile, err := os.OpenFile(fpath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.FileMode(hdr.Mode))
+			if err != nil {
+				return err
+			}
+			_, err = io.Copy(outFile, tr)
+			outFile.Close()
+			if err != nil {
+				return err
+			}
+		}
+	}
 	return nil
 }

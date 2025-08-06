@@ -12,6 +12,7 @@ func ParseRepoURL(url string) (pkgID string, err error) {
 	url = strings.TrimPrefix(url, "http://")
 	url = strings.TrimPrefix(url, "github.com/")
 
+	// TODO: consider removing dir beyond username/repo, but need to support specific releases if planning on impelementing that
 	pkgID = url
 
 	if len(pkgID) <= 2 {
