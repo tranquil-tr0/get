@@ -1,5 +1,5 @@
 - support prereleases
-- add install version flag
+- add install version ability in GUI, consider reworking install ux in gui to use an install modal
 - support github release links for specific version install
 - support direct links to autoupdating files like beeper and discord
 - replace tag name prefix filtering with tag name regex filtering instead
