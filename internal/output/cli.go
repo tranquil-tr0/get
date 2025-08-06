@@ -57,28 +57,51 @@ func (o *CLIOutput) PromptAssetIndexSelection(ctx context.Context, debNames, bin
 		allNames = append(allNames, name)
 		fmt.Printf("  [%d] [bin] %s\n", len(allNames), name)
 	}
-	for _, name := range otherNames {
-		allNames = append(allNames, name)
-		fmt.Printf("  [%d] [other] %s\n", len(allNames), name)
+	// showOther variable removed (was unused)
+
+	otherShown := false
+	if len(otherNames) > 0 {
+		fmt.Printf("  [s] Show other assets (%d)\n", len(otherNames))
 	}
 
-	if len(allNames) == 0 {
+	if len(allNames) == 0 && len(otherNames) == 0 {
 		fmt.Println("No installable assets found.")
 		return -1, fmt.Errorf("no installable assets")
 	}
 
-	fmt.Print("\nSelect an option by entering a number, or enter 'c' to cancel: ")
-	scanner := bufio.NewScanner(os.Stdin)
-	scanner.Scan()
-	input := strings.TrimSpace(scanner.Text())
-	if input == "c" || input == "C" || input == "" {
-		return -1, context.Canceled
+	for {
+		// Only show the 's' option if other assets haven't been shown yet and there are other assets
+		prompt := "\nSelect an option by entering a number"
+		if len(otherNames) > 0 && !otherShown {
+			prompt += ", 's' to show other assets"
+		}
+		if len(otherNames) > 0 && otherShown {
+			prompt += " to manually define it as a binary and install it as such"
+		}
+		prompt += ", or 'c' to cancel: "
+		fmt.Print(prompt)
+		scanner := bufio.NewScanner(os.Stdin)
+		scanner.Scan()
+		input := strings.TrimSpace(scanner.Text())
+		if input == "c" || input == "C" || input == "" {
+			return -1, context.Canceled
+		}
+		if (input == "s" || input == "S") && len(otherNames) > 0 && !otherShown {
+			// Show other assets
+			for _, name := range otherNames {
+				allNames = append(allNames, name)
+				fmt.Printf("  [%d] [other] %s\n", len(allNames), name)
+			}
+			otherShown = true
+			continue
+		}
+		choice, err := strconv.Atoi(input)
+		if err != nil || choice < 1 || choice > len(allNames) {
+			fmt.Printf("Invalid selection: %s\n", input)
+			continue
+		}
+		return choice - 1, nil
 	}
-	choice, err := strconv.Atoi(input)
-	if err != nil || choice < 1 || choice > len(allNames) {
-		return -1, fmt.Errorf("invalid selection: %s", input)
-	}
-	return choice - 1, nil
 }
 
 func (o *CLIOutput) PromptElevatedCommand(prompt string, command string, args ...string) ([]byte, error) {
