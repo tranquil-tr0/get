@@ -43,6 +43,8 @@ func main() {
 	installGroupBox.SetTitle("Install Package")
 	installLayout := qt.NewQHBoxLayout(nil)
 	installGroupBox.SetLayout(installLayout.QLayout)
+	installGroupBox.SetMaximumSize(qt.NewQSize2(16777215, 120))
+	installGroupBox.SetSizePolicy(*qt.NewQSizePolicy2(qt.QSizePolicy__Expanding, qt.QSizePolicy__Minimum))
 	layout.AddWidget(installGroupBox.QWidget)
 
 	repoInput := qt.NewQLineEdit(nil)
@@ -60,8 +62,13 @@ func main() {
 	listGroupBox.SetLayout(listLayout.QLayout)
 	layout.AddWidget(listGroupBox.QWidget)
 
-	packageList := qt.NewQListWidget(nil)
-	listLayout.AddWidget(packageList.QWidget)
+	// Container for package widgets
+	packageList := qt.NewQWidget(nil)
+	packageListLayout := qt.NewQVBoxLayout(nil)
+	packageListLayout.SetSpacing(5) // Fixed spacing between package widgets
+	packageList.SetLayout(packageListLayout.QLayout)
+	// Set the package list to expand and fill available space
+	listLayout.AddWidget(packageList)
 
 	refreshButton := qt.NewQPushButton(nil)
 	refreshButton.SetText("Refresh List")
@@ -71,52 +78,120 @@ func main() {
 	actionsLayout := qt.NewQHBoxLayout(nil)
 	layout.AddLayout(actionsLayout.QLayout)
 
-	removeButton := qt.NewQPushButton(nil)
-	removeButton.SetText("Remove Selected")
-	actionsLayout.AddWidget(removeButton.QWidget)
+	// Remove Selected button is no longer needed, as each package has its own Remove button
 
 	updateButton := qt.NewQPushButton(nil)
 	updateButton.SetText("Check for Updates")
 	actionsLayout.AddWidget(updateButton.QWidget)
 
-	upgradeButton := qt.NewQPushButton(nil)
-	upgradeButton.SetText("Upgrade All")
-	actionsLayout.AddWidget(upgradeButton.QWidget)
+	upgradeAllPackagesButton := qt.NewQPushButton(nil)
+	upgradeAllPackagesButton.SetText("Upgrade All")
+	actionsLayout.AddWidget(upgradeAllPackagesButton.QWidget)
+
+	updateAllPackagesButton := qt.NewQPushButton(nil)
+	updateAllPackagesButton.SetText("Update All Packages")
+	actionsLayout.AddWidget(updateAllPackagesButton.QWidget)
 
 	// --- Functionality ---
 
-	refreshPackageList := func() {
-		packageList.Clear()
+	var addPackageWidget func(pkgID string, pkg manager.PackageMetadata, updateVersion string)
+
+	populatePackageList := func() {
+		// Remove all widgets from the layout
+		for packageListLayout.Count() > 0 {
+			item := packageListLayout.TakeAt(0)
+			if item != nil {
+				w := item.Widget()
+				if w != nil {
+					w.DeleteLater()
+				}
+			}
+		}
+
 		sortedKeys, packages, pendingUpdates, err := pm.ListInstalledPackagesAndPendingUpdates()
 		if err != nil {
 			pm.Out.PrintError("Failed to load package metadata:\n%v", err)
 			return
 		}
 		if len(sortedKeys) == 0 {
-			packageList.AddItem("No packages installed.")
+			label := qt.NewQLabel(nil)
+			label.SetText("No packages installed.")
+			packageListLayout.AddWidget(label.QWidget)
 			return
 		}
 
-		// Show packages with pending updates at the top, in sorted order
+		// Show packages with pending updates at the top
 		for _, pkgID := range sortedKeys {
 			newVersion, hasUpdate := pendingUpdates[pkgID]
 			pkg := packages[pkgID]
 			if hasUpdate {
-				itemText := fmt.Sprintf("%s v%s (%s) [Update Available to %s]", pkgID, pkg.Version, pkg.InstallType, newVersion)
-				packageList.AddItem(itemText)
+				addPackageWidget(pkgID, pkg, newVersion)
 			}
 		}
-		// Show the rest (no pending updates), in sorted order
+		// Show the rest (no pending updates)
 		for _, pkgID := range sortedKeys {
 			if _, hasUpdate := pendingUpdates[pkgID]; hasUpdate {
 				continue
 			}
 			pkg := packages[pkgID]
-			itemText := fmt.Sprintf("%s v%s (%s)", pkgID, pkg.Version, pkg.InstallType)
-			packageList.AddItem(itemText)
+			addPackageWidget(pkgID, pkg, "")
 		}
 	}
 
+	upgradePackageButtonClick := func(pkgID string) {
+		if pkgID == "" {
+			return
+		}
+		err := pm.UpgradeSpecificPackage(context.Background(), pkgID)
+		if err != nil {
+			pm.Out.PrintError("Failed to upgrade %s:\n%v", pkgID, err)
+		} else {
+			pm.Out.PrintSuccess("Successfully upgraded %s", pkgID)
+			populatePackageList()
+		}
+	}
+	// Helper to add a package widget
+	addPackageWidget = func(pkgID string, pkg manager.PackageMetadata, updateVersion string) {
+		pkgWidget := qt.NewQWidget(nil)
+		// Apply style only to the card itself, not its children
+		pkgWidget.SetObjectName(*qt.NewQAnyStringView3("packageCard"))
+		pkgWidget.SetStyleSheet("#packageCard { background-color: palette(base); border: 2px solid palette(mid); border-radius: 6px; }")
+		hLayout := qt.NewQHBoxLayout(nil)
+		pkgWidget.SetLayout(hLayout.QLayout)
+
+		// Package info label
+		labelText := fmt.Sprintf("%s %s (%s)", pkgID, pkg.Version, pkg.InstallType)
+		label := qt.NewQLabel(nil)
+		label.SetText(labelText)
+		hLayout.AddWidget(label.QWidget)
+
+		// If update available, add button
+		if updateVersion != "" {
+			updateBtn := qt.NewQPushButton(nil)
+			updateBtn.SetText(fmt.Sprintf("Update to %s", updateVersion))
+			updateBtn.SetSizePolicy(*qt.NewQSizePolicy2(qt.QSizePolicy__Minimum, qt.QSizePolicy__Fixed))
+			updateBtn.OnClicked(func() {
+				upgradePackageButtonClick(pkgID)
+			})
+			hLayout.AddWidget(updateBtn.QWidget)
+		}
+
+		// Remove button
+		removeBtn := qt.NewQPushButton(nil)
+		removeBtn.SetText("Remove")
+		removeBtn.SetSizePolicy(*qt.NewQSizePolicy2(qt.QSizePolicy__Preferred, qt.QSizePolicy__Fixed))
+		removeBtn.OnClicked(func() {
+			if err := pm.Remove(pkgID); err != nil {
+				pm.Out.PrintError("Failed to remove package:\n%v", err)
+			} else {
+				pm.Out.PrintSuccess("Successfully removed %s", pkgID)
+				populatePackageList()
+			}
+		})
+		hLayout.AddWidget(removeBtn.QWidget)
+
+		packageListLayout.AddWidget(pkgWidget)
+	}
 	installButton.OnClicked(func() {
 		repoURL := repoInput.Text()
 		if repoURL == "" {
@@ -137,23 +212,7 @@ func main() {
 		} else {
 			pm.Out.PrintSuccess("Successfully installed %s", pkgID)
 			repoInput.Clear()
-			refreshPackageList()
-		}
-	})
-
-	removeButton.OnClicked(func() {
-		currentItem := packageList.CurrentItem()
-		if currentItem == nil {
-			return
-		}
-		pkgText := currentItem.Text()
-		pkgID := strings.Split(pkgText, " ")[0]
-
-		if err := pm.Remove(pkgID); err != nil {
-			pm.Out.PrintError("Failed to remove package:\n%v", err)
-		} else {
-			pm.Out.PrintSuccess("Successfully removed %s", pkgID)
-			refreshPackageList()
+			populatePackageList()
 		}
 	})
 
@@ -174,24 +233,24 @@ func main() {
 			updateText.WriteString(fmt.Sprintf("  %s: %s\n", pkgID, version))
 		}
 		pm.Out.PrintInfo(updateText.String())
-		refreshPackageList()
+		populatePackageList()
 	})
 
-	upgradeButton.OnClicked(func() {
+	upgradeAllPackagesButton.OnClicked(func() {
 		if err := pm.UpgradeAllPackages(context.Background()); err != nil {
 			pm.Out.PrintError("Failed to upgrade packages:\n%v", err)
 		} else {
 			pm.Out.PrintSuccess("All packages upgraded successfully.")
-			refreshPackageList()
+			populatePackageList()
 		}
 	})
 
 	refreshButton.OnClicked(func() {
-		refreshPackageList()
+		populatePackageList()
 	})
 
 	// Initial load
-	refreshPackageList()
+	populatePackageList()
 
 	window.Show()
 	qt.QApplication_Exec()
