@@ -8,13 +8,15 @@ import (
 	"github.com/tranquil-tr0/get/internal/github"
 )
 
-func (pm *PackageManager) UpdateAllPackages() (map[string]string, error) {
+// UpdateAllPackages returns new updates for all installed packages and updates that could not be checked and updates Metadata
+func (pm *PackageManager) UpdateAllPackages() (updates map[string]string, err error) {
+
 	metadata, err := pm.GetPackageManagerMetadata()
 	if err != nil {
 		return nil, fmt.Errorf("failed to load metadata: %v", err)
 	}
 
-	updates := make(map[string]string)
+	updates = make(map[string]string)
 	var failedPackages []string
 
 	for pkgID := range metadata.Packages {
@@ -31,8 +33,6 @@ func (pm *PackageManager) UpdateAllPackages() (map[string]string, error) {
 
 	if len(failedPackages) > 0 {
 		return updates, fmt.Errorf("failed to check updates for %d package(s): %v", len(failedPackages), failedPackages)
-		// TODO: flag issue: does not return successful updates with failed updates, the implementation of this function
-		// will attempt to write updates for all packages, even if some failed
 	}
 
 	return updates, nil

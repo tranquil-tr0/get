@@ -244,7 +244,7 @@ func main() {
 		}
 
 		var updateText strings.Builder
-		updateText.WriteString("Available updates:\n")
+		updateText.WriteString(fmt.Sprintf("Found %d updates:\n", len(updates)))
 		for pkgID, version := range updates {
 			updateText.WriteString(fmt.Sprintf("  %s: %s\n", pkgID, version))
 		}
