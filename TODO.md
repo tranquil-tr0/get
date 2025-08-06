@@ -12,4 +12,3 @@
 - stop the gui from becoming frozen/unresponsive when executing task, such as by showing loading spinner instead
 - improve the look of things overall
 - support rpm
-- reimplement support archive extraction as binary
