@@ -149,7 +149,7 @@ func (pm *PackageManager) InstallReleaseWithOptions(ctx context.Context, pkgID s
 		pm.Out.PrintInfo("Installing unidentified package type as binary", installType)
 		return pm.InstallBinary(pkgID, release, selectedAsset, options)
 	default:
-		return fmt.Errorf("unknown install type: \"%s\", it may be missing", installType)
+		return fmt.Errorf("uh oh: reached code that should not be reached. please file an issue.\nunknown install type: \"%s\", it may be missing", installType)
 	}
 }
 
@@ -229,7 +229,7 @@ func (pm *PackageManager) InstallArchive(pkgID string, release *github.Release, 
 		pm.Out.PrintStatus("Found binary in archive: %s", filepath.Base(binaryAssetPath))
 		asset := &github.Asset{
 			Name:               filepath.Base(binaryAssetPath),
-			BrowserDownloadURL: "file://" + binaryAssetPath,
+			BrowserDownloadURL: "file:/" + binaryAssetPath,
 		}
 		return pm.InstallBinary(pkgID, release, asset, options)
 	}
@@ -311,7 +311,7 @@ func (pm *PackageManager) InstallDebPackage(pkgID string, release *github.Releas
 	if options != nil && options.TagPrefix != "" {
 		tagPrefix = options.TagPrefix
 	}
-	return pm.UpdatePackageMetadata(pkgID, release, PackageMetadata{
+	return pm.UpdatePackageMetadata(pkgID, PackageMetadata{
 		Version:      strings.TrimPrefix(release.TagName, "v"),
 		InstalledAt:  release.PublishedAt,
 		AptName:      aptPackageName,
@@ -412,7 +412,7 @@ func (pm *PackageManager) InstallBinary(pkgID string, release *github.Release, b
 	if options != nil && options.TagPrefix != "" {
 		tagPrefix = options.TagPrefix
 	}
-	return pm.UpdatePackageMetadata(pkgID, release, PackageMetadata{
+	return pm.UpdatePackageMetadata(pkgID, PackageMetadata{
 		Version:      strings.TrimPrefix(release.TagName, "v"),
 		InstalledAt:  release.PublishedAt,
 		BinaryPath:   finalBinaryPath,
@@ -522,20 +522,13 @@ func (pm *PackageManager) RollbackInstallation(packageName string) error {
 }
 
 // UpdatePackageMetadata updates the package metadata and handles rollback on failure
-func (pm *PackageManager) UpdatePackageMetadata(pkgID string, release *github.Release, pkgMetadata PackageMetadata) error {
+func (pm *PackageManager) UpdatePackageMetadata(pkgID string, pkgMetadata PackageMetadata) error {
 	metadata, metaErr := pm.GetPackageManagerMetadata()
 	if metaErr != nil {
 		return metaErr
 	}
 
-	parts := strings.Split(pkgID, "/")
-	if len(parts) < 2 {
-		return fmt.Errorf("failed to find owner and repo from pkgID: %s", pkgID)
-	}
-
 	metadata.Packages[pkgID] = pkgMetadata
-
-	delete(metadata.PendingUpdates, pkgID)
 
 	err := pm.WritePackageManagerMetadata(metadata)
 	if err != nil {

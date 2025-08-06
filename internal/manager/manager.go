@@ -21,7 +21,7 @@ type PackageManager struct {
 type PackageMetadata struct {
 	Version      string `json:"version"`
 	InstalledAt  string `json:"installed_at"`
-	AptName      string `json:"apt_name,omitempty"`      // For .deb packages, the name dpkg registers
+	AptName      string `json:"apt_name,omitempty"`      // For .deb packages, the name in dpkg
 	BinaryPath   string `json:"binary_path,omitempty"`   // For binary installations
 	InstallType  string `json:"install_type"`            // "deb" or "binary" or "archive"
 	OriginalName string `json:"original_name,omitempty"` // Original asset filename
