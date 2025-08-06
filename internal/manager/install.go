@@ -137,53 +137,56 @@ func (pm *PackageManager) InstallReleaseWithOptions(ctx context.Context, pkgID s
 		}
 	}
 
-	// Route to appropriate installation method
-	switch installType {
-	case "deb":
-		return pm.InstallDebPackage(pkgID, release, selectedAsset, options)
-	case "binary":
-		return pm.InstallBinary(pkgID, release, selectedAsset, options)
-	case "archive":
-		return pm.InstallArchive(pkgID, release, selectedAsset, options)
-	case "other":
-		pm.Out.PrintInfo("Installing unidentified package type as binary", installType)
-		return pm.InstallBinary(pkgID, release, selectedAsset, options)
-	default:
-		return fmt.Errorf("uh oh: reached code that should not be reached. please file an issue.\nunknown install type: \"%s\", it may be missing", installType)
-	}
-}
-
-// InstallArchive handles installation from an archive asset (zip, tar.gz, tar, gz)
-func (pm *PackageManager) InstallArchive(pkgID string, release *github.Release, archiveAsset *github.Asset, options *github.ReleaseOptions) error {
-	pm.Out.PrintStatus("Downloading archive: %s", archiveAsset.Name)
-	resp, httpErr := http.Get(archiveAsset.BrowserDownloadURL)
+	// Download asset file before installation
+	pm.Out.PrintStatus("Downloading asset: %s", selectedAsset.Name)
+	resp, httpErr := http.Get(selectedAsset.BrowserDownloadURL)
 	if httpErr != nil {
-		return fmt.Errorf("failed to download archive: %v", httpErr)
+		return fmt.Errorf("failed to download asset: %v", httpErr)
 	}
 	defer resp.Body.Close()
 
-	tempDir, tempErr := os.MkdirTemp("", "get-archive-*")
+	tempDir, tempErr := os.MkdirTemp("", "get-asset-*")
 	if tempErr != nil {
 		return fmt.Errorf("failed to create temp dir: %v", tempErr)
 	}
 	defer os.RemoveAll(tempDir)
 
-	archivePath := filepath.Join(tempDir, archiveAsset.Name)
-	file, createErr := os.Create(archivePath)
+	assetPath := filepath.Join(tempDir, selectedAsset.Name)
+	file, createErr := os.Create(assetPath)
 	if createErr != nil {
-		return fmt.Errorf("failed to create archive file: %v", createErr)
+		return fmt.Errorf("failed to create asset file: %v", createErr)
 	}
-	_, copyErr := io.Copy(file, resp.Body)
+	if _, copyErr := io.Copy(file, resp.Body); copyErr != nil {
+		file.Close()
+		return fmt.Errorf("failed to save asset: %v", copyErr)
+	}
 	file.Close()
-	if copyErr != nil {
-		return fmt.Errorf("failed to save archive: %v", copyErr)
-	}
 
-	extractedDir := filepath.Join(tempDir, "extracted")
-	if err := os.Mkdir(extractedDir, 0755); err != nil {
+	// Route to appropriate installation method
+	switch installType {
+	case "deb":
+		return pm.InstallDebPackage(pkgID, release, assetPath, options)
+	case "binary":
+		return pm.InstallBinary(pkgID, release, assetPath, options)
+	case "archive":
+		return pm.InstallArchive(pkgID, release, assetPath, options)
+	case "other":
+		pm.Out.PrintInfo("Installing unidentified package type as binary", installType)
+		return pm.InstallBinary(pkgID, release, assetPath, options)
+	default:
+		return fmt.Errorf("uh oh: reached code that should not be reached. please file an issue.\nunknown install type: \"%s\", it may be missing", installType)
+	}
+}
+
+// InstallArchive handles installation from an archive (zip, tar.gz, tar, gz)
+func (pm *PackageManager) InstallArchive(pkgID string, release *github.Release, archivePath string, options *github.ReleaseOptions) error {
+	// make a directory for the extracted contents of the archive
+	extractedDir, err := os.MkdirTemp("", "get-extracted-archive-*")
+	if err != nil {
 		return fmt.Errorf("failed to create extraction dir: %v", err)
 	}
-	err := pm.ExtractArchive(archivePath, extractedDir)
+	defer os.RemoveAll(extractedDir)
+	err = pm.ExtractArchive(archivePath, extractedDir)
 	if err != nil {
 		return fmt.Errorf("failed to extract archive: %v", err)
 	}
@@ -220,52 +223,16 @@ func (pm *PackageManager) InstallArchive(pkgID string, release *github.Release, 
 
 	if debAssetPath != "" {
 		pm.Out.PrintStatus("Found .deb package in archive: %s", filepath.Base(debAssetPath))
-		asset := &github.Asset{
-			Name:               filepath.Base(debAssetPath),
-			BrowserDownloadURL: "file://" + debAssetPath,
-		}
-		return pm.InstallDebPackage(pkgID, release, asset, options)
+		return pm.InstallDebPackage(pkgID, release, debAssetPath, options)
 	} else if binaryAssetPath != "" {
 		pm.Out.PrintStatus("Found binary in archive: %s", filepath.Base(binaryAssetPath))
-		asset := &github.Asset{
-			Name:               filepath.Base(binaryAssetPath),
-			BrowserDownloadURL: "file:/" + binaryAssetPath,
-		}
-		return pm.InstallBinary(pkgID, release, asset, options)
+		return pm.InstallBinary(pkgID, release, binaryAssetPath, options)
 	}
 	return fmt.Errorf("no installable .deb or binary found in archive")
 }
 
 // InstallDebPackage handles .deb package installation
-func (pm *PackageManager) InstallDebPackage(pkgID string, release *github.Release, debAsset *github.Asset, options *github.ReleaseOptions) error {
-	// Download package
-	pm.Out.PrintStatus("Downloading package: %s", debAsset.Name)
-	resp, httpErr := http.Get(debAsset.BrowserDownloadURL)
-	if httpErr != nil {
-		return fmt.Errorf("failed to download package: %v", httpErr)
-	}
-	defer resp.Body.Close()
-
-	// Create temp directory
-	tempDir, tempErr := os.MkdirTemp("", "get-*")
-	if tempErr != nil {
-		return fmt.Errorf("failed to create temp directory: %v", tempErr)
-	}
-	defer os.RemoveAll(tempDir)
-
-	// Save package
-	packagePath := filepath.Join(tempDir, debAsset.Name)
-	file, createErr := os.Create(packagePath)
-	if createErr != nil {
-		return fmt.Errorf("failed to create package file: %v", createErr)
-	}
-
-	if _, copyErr := io.Copy(file, resp.Body); copyErr != nil {
-		file.Close()
-		return fmt.Errorf("failed to save package file: %v", copyErr)
-	}
-	file.Close()
-
+func (pm *PackageManager) InstallDebPackage(pkgID string, release *github.Release, packagePath string, options *github.ReleaseOptions) error {
 	// Validate package before installation
 	if err := pm.ValidateDebPackage(packagePath); err != nil {
 		return fmt.Errorf("package validation failed: %v", err)
@@ -289,7 +256,7 @@ func (pm *PackageManager) InstallDebPackage(pkgID string, release *github.Releas
 	}
 
 	// Extract package name using dpkg-deb
-	aptPackageName, nameErr := pm.GetPackageNameFromDeb(packagePath)
+	dpkgPackageName, nameErr := pm.GetPackageNameFromDeb(packagePath)
 	if nameErr != nil {
 		// Fallback: extract from .deb filename
 		debFilename := filepath.Base(packagePath)
@@ -297,11 +264,11 @@ func (pm *PackageManager) InstallDebPackage(pkgID string, release *github.Releas
 			nameWithoutExt := strings.TrimSuffix(debFilename, ".deb")
 			parts := strings.Split(nameWithoutExt, "_")
 			if len(parts) > 0 {
-				aptPackageName = parts[0]
+				dpkgPackageName = parts[0]
 			}
 		}
 
-		if aptPackageName == "" {
+		if dpkgPackageName == "" {
 			return fmt.Errorf("failed to extract package name: %v", nameErr)
 		}
 	}
@@ -314,50 +281,22 @@ func (pm *PackageManager) InstallDebPackage(pkgID string, release *github.Releas
 	return pm.UpdatePackageMetadata(pkgID, PackageMetadata{
 		Version:      strings.TrimPrefix(release.TagName, "v"),
 		InstalledAt:  release.PublishedAt,
-		AptName:      aptPackageName,
+		AptName:      dpkgPackageName,
 		InstallType:  "deb",
-		OriginalName: debAsset.Name,
+		OriginalName: filepath.Base(packagePath),
 		TagPrefix:    tagPrefix,
 	})
 }
 
 // InstallBinary handles binary executable installation
-func (pm *PackageManager) InstallBinary(pkgID string, release *github.Release, binaryAsset *github.Asset, options *github.ReleaseOptions) error {
-	// Download binary
-	pm.Out.PrintStatus("Downloading binary: %s", binaryAsset.Name)
-	resp, httpErr := http.Get(binaryAsset.BrowserDownloadURL)
-	if httpErr != nil {
-		return fmt.Errorf("failed to download binary: %v", httpErr)
-	}
-	defer resp.Body.Close()
-
-	// Create temp directory
-	tempDir, tempErr := os.MkdirTemp("", "get-*")
-	if tempErr != nil {
-		return fmt.Errorf("failed to create temp directory: %v", tempErr)
-	}
-	defer os.RemoveAll(tempDir)
-
-	// Save binary
-	tempBinaryPath := filepath.Join(tempDir, binaryAsset.Name)
-	file, createErr := os.Create(tempBinaryPath)
-	if createErr != nil {
-		return fmt.Errorf("failed to create binary file: %v", createErr)
-	}
-
-	if _, copyErr := io.Copy(file, resp.Body); copyErr != nil {
-		file.Close()
-		return fmt.Errorf("failed to save binary file: %v", copyErr)
-	}
-	file.Close()
-
+func (pm *PackageManager) InstallBinary(pkgID string, release *github.Release, binaryPath string, options *github.ReleaseOptions) error {
 	// Make binary executable
-	if err := os.Chmod(tempBinaryPath, 0755); err != nil {
+	if err := os.Chmod(binaryPath, 0755); err != nil {
 		return fmt.Errorf("failed to make binary executable: %v", err)
 	}
 
 	// Determine final binary name and path
-	binaryName := binaryAsset.Name
+	binaryName := filepath.Base(binaryPath)
 	finalBinaryPath := filepath.Join("/usr/local/bin", binaryName)
 
 	// Install binary to /usr/local/bin
@@ -382,7 +321,7 @@ func (pm *PackageManager) InstallBinary(pkgID string, release *github.Release, b
 	}
 
 	// Copy the new binary
-	cmdOutput, installErr := pm.Out.PromptElevatedCommand("Password required for binary installation: ", "cp", tempBinaryPath, finalBinaryPath)
+	cmdOutput, installErr := pm.Out.PromptElevatedCommand("Password required for binary installation: ", "cp", binaryPath, finalBinaryPath)
 	if installErr != nil {
 
 		// If installation failed and we had a backup (self-upgrade), try to restore it
@@ -417,7 +356,7 @@ func (pm *PackageManager) InstallBinary(pkgID string, release *github.Release, b
 		InstalledAt:  release.PublishedAt,
 		BinaryPath:   finalBinaryPath,
 		InstallType:  "binary",
-		OriginalName: binaryAsset.Name,
+		OriginalName: binaryName,
 		TagPrefix:    tagPrefix,
 	})
 }
