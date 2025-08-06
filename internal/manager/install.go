@@ -73,6 +73,8 @@ func (pm *PackageManager) InstallRelease(ctx context.Context, pkgID string, rele
 	return pm.InstallReleaseWithOptions(ctx, pkgID, release, preSelectedAsset, nil)
 }
 
+// InstallReleaseWithOptions installs a release with optional pre-selected asset and additional options
+// PreSelectedAsset is only expected to exist during upgrades, as the user can not have selected the correct asset the first time
 func (pm *PackageManager) InstallReleaseWithOptions(ctx context.Context, pkgID string, release *github.Release, preSelectedAsset *github.Asset, options *github.ReleaseOptions) error {
 	var selectedAsset *github.Asset
 	var installType string
@@ -80,16 +82,19 @@ func (pm *PackageManager) InstallReleaseWithOptions(ctx context.Context, pkgID s
 
 	if preSelectedAsset != nil {
 		selectedAsset = preSelectedAsset
-		// Determine installType based on asset name
-		// TODO: replace with downloading headers and checking mime type
-		if strings.HasSuffix(selectedAsset.Name, ".deb") {
+		// Determine installType using asset mime type
+		assetType := selectedAsset.GetAssetType()
+		switch assetType {
+		case "application/vnd.debian.binary-package":
 			installType = "deb"
-		} else {
+		case "application/x-executable":
 			installType = "binary"
+		default:
+			installType = "other"
 		}
 	} else {
 		// Interactive asset selection
-		pm.Out.PrintInfo("Please choose the correct asset to install. Your selection will be saved for future installations.")
+		pm.Out.PrintInfo("Please choose an asset to install. Your selection will be saved for future installations.")
 		selectedAsset, installType, err = pm.SelectAssetInteractively(ctx, release)
 		if err != nil {
 			return err

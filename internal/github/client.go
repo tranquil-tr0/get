@@ -3,12 +3,15 @@ package github
 import (
 	"context"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"regexp"
 	"strings"
 	"time"
 
 	"github.com/google/go-github/v66/github"
+	"github.com/h2non/filetype"
 )
 
 type ReleaseOptions struct {
@@ -138,7 +141,7 @@ func (r *Release) FindBinaryAssets() []Asset {
 	var binaries []Asset
 	for _, asset := range r.Assets {
 		name := asset.Name
-		if asset.ContentType == "application/octet-stream" &&
+		if (asset.ContentType == "application/octet-stream" || asset.ContentType == "application/x-executable") &&
 			(!strings.Contains(name, ".") ||
 				strings.HasSuffix(name, ".run") ||
 				strings.HasSuffix(name, ".bin")) {
@@ -199,4 +202,81 @@ func (c *Client) GetLatestVersionNameWithOptions(pkgID string, options *ReleaseO
 	}
 
 	return version, nil
+}
+
+// GetAssetType determines the type of the asset by downloading its beginning and processing with filetype
+// returns the mime type as a string
+//
+// return values:
+//
+//	tar.gz, .gz:                 "application/gzip"
+//	.tar:                        "application/x-tar"
+//	.zip:                        "application/zip"
+//	.deb:                        "application/vnd.debian.binary-package"
+//	.rpm:                        "application/x-rpm"
+//	Linux binary (ELF):          "application/x-executable"
+//	unknown or unrecognized:     "unknown"
+func (a *Asset) GetAssetType() string {
+	const bytes = 262
+	resp, err := downloadPartial(a.BrowserDownloadURL, bytes)
+	if err != nil {
+		return "unknown"
+	}
+	defer resp.Close()
+
+	buf := make([]byte, bytes)
+	n, err := resp.Read(buf)
+	if err != nil && n == 0 {
+		return "unknown"
+	}
+	buf = buf[:n]
+
+	kind, err := filetype.Match(buf)
+	if err != nil || kind == filetype.Unknown {
+		return "unknown"
+	}
+	return kind.MIME.Value
+}
+
+// downloadPartial downloads the first n bytes from a URL and returns a ReadCloser
+func downloadPartial(url string, numBytes int) (respBody *os.File, err error) {
+	// Use HTTP Range header to fetch only the first n bytes
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Range", fmt.Sprintf("bytes=0-%d", numBytes-1))
+
+	client := &http.Client{Timeout: 15 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != 206 && resp.StatusCode != 200 {
+		resp.Body.Close()
+		return nil, fmt.Errorf("unexpected status: %s", resp.Status)
+	}
+
+	// Save to a temp file to allow io.ReadCloser return
+	tmp, err := os.CreateTemp("", "get-asset-sniff-*")
+	if err != nil {
+		resp.Body.Close()
+		return nil, err
+	}
+	defer func() {
+		if err != nil {
+			tmp.Close()
+			os.Remove(tmp.Name())
+		}
+	}()
+	_, err = io.CopyN(tmp, resp.Body, int64(numBytes))
+	resp.Body.Close()
+	if err != nil && err != io.EOF {
+		return nil, err
+	}
+	_, err = tmp.Seek(0, 0)
+	if err != nil {
+		return nil, err
+	}
+	return tmp, nil
 }
