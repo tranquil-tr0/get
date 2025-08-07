@@ -28,7 +28,7 @@ func main() {
 
 	rootCmd := &cobra.Command{
 		Use:     "get",
-		Version: "v0.1.0",
+		Version: "v0.4.3",
 		Short:   "A package manager for GitHub releases",
 		Long:    "A package manager for GitHub releases that helps you install and manage packages from GitHub without worrying about leaving unupdated packages on your system.",
 	}

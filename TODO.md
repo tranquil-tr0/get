@@ -12,3 +12,4 @@
 - stop the gui from becoming frozen/unresponsive when executing task, such as by showing loading spinner instead
 - improve the look of things overall
 - support rpm
+- improve the cli list to look better and show package type
