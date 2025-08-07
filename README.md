@@ -1,6 +1,7 @@
 # Get
 
 A tool to install and manage packages from GitHub, helping you avoid outdated or unused packages cluttering your system.
+Note that this only supports binaries and debs (and those two formats inside archive formats) as of v0.4.2, rpm support may come. Otherwise, binary installs should work for non-debian systems; if they don't, please file an issue.
 
 ## Install
 
