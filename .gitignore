@@ -13,6 +13,9 @@ get
 get-gui
 get-cli
 
+# GUI install file
+get-gui-deb.deb
+
 # Testing scripts
 *.sh
 
