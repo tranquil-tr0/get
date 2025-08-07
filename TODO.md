@@ -13,3 +13,5 @@
 - improve the look of things overall
 - support rpm
 - improve the cli list to look better and show package type
+- fix gui not resizable to be narrower
+- fix gui icon not in (my) taskbar (probably need a smaller icon) (for the deb)
