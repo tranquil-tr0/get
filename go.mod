@@ -1,6 +1,6 @@
 module github.com/tranquil-tr0/get
 
-go 1.24.2
+go 1.25.4
 
 require (
 	github.com/google/go-github/v66 v66.0.0
