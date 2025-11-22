@@ -163,6 +163,11 @@ func (pm *PackageManager) InstallReleaseWithOptions(ctx context.Context, pkgID s
 	file.Close()
 
 	// Route to appropriate installation method
+	// Validate rename flag: it is only valid for binary installations or archives
+	if options != nil && options.Rename != "" && installType != "binary" && installType != "archive" {
+		return fmt.Errorf("--rename is only valid for binary or archive installations")
+	}
+
 	switch installType {
 	case "deb":
 		return pm.InstallDebPackage(pkgID, release, assetPath, options)
@@ -223,6 +228,9 @@ func (pm *PackageManager) InstallArchive(pkgID string, release *github.Release, 
 
 	if debAssetPath != "" {
 		pm.Out.PrintStatus("Found .deb package in archive: %s", filepath.Base(debAssetPath))
+		if options != nil && options.Rename != "" {
+			return fmt.Errorf("--rename applies only to binary installations or binaries in archives")
+		}
 		return pm.InstallDebPackage(pkgID, release, debAssetPath, options)
 	} else if binaryAssetPath != "" {
 		pm.Out.PrintStatus("Found binary in archive: %s", filepath.Base(binaryAssetPath))
@@ -295,9 +303,19 @@ func (pm *PackageManager) InstallBinary(pkgID string, release *github.Release, b
 		return fmt.Errorf("failed to make binary executable: %v", err)
 	}
 
-	// Determine final binary name and path
+	// Determine final binary name and path. If a rename was requested, use it.
 	binaryName := filepath.Base(binaryPath)
-	finalBinaryPath := filepath.Join("/usr/local/bin", binaryName)
+	if options != nil && options.Rename != "" {
+		// validate rename does not include path separators
+		if options.Rename != filepath.Base(options.Rename) {
+			return fmt.Errorf("invalid rename target: %s; must be a filename without path separators", options.Rename)
+		}
+	}
+	finalName := binaryName
+	if options != nil && options.Rename != "" {
+		finalName = options.Rename
+	}
+	finalBinaryPath := filepath.Join("/usr/local/bin", finalName)
 
 	// Install binary to /usr/local/bin
 	pm.Out.PrintStatus("Installing binary to /usr/local/bin...")
@@ -320,7 +338,7 @@ func (pm *PackageManager) InstallBinary(pkgID string, release *github.Release, b
 		}
 	}
 
-	// Copy the new binary
+	// Copy the new binary to its final name
 	cmdOutput, installErr := pm.Out.PromptElevatedCommand("Password required for binary installation: ", "cp", binaryPath, finalBinaryPath)
 	if installErr != nil {
 
@@ -344,7 +362,7 @@ func (pm *PackageManager) InstallBinary(pkgID string, release *github.Release, b
 		}
 	}
 
-	pm.Out.PrintSuccess("Binary installed as: %s", binaryName)
+	pm.Out.PrintSuccess("Binary installed as: %s", finalName)
 
 	// Update metadata
 	tagPrefix := ""

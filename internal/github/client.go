@@ -16,6 +16,11 @@ import (
 
 type ReleaseOptions struct {
 	TagPrefix string // Filter releases by tag prefix (e.g., "auth-", "photos-")
+	// Rename indicates the desired name for installed binary assets. When set,
+	// the installation process should rename the installed binary to this name.
+	// This is only applicable to binary installations (or archives containing a
+	// binary). Invalid for deb packages.
+	Rename string
 }
 
 type Client struct {

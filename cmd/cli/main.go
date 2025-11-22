@@ -43,6 +43,7 @@ func main() {
 			repoURL := args[0]
 			release, _ := cmd.Flags().GetString("release")
 			packageType, _ := cmd.Flags().GetString("tag-prefix")
+			rename, _ := cmd.Flags().GetString("rename")
 
 			pkgID, err := tools.ParseRepoURL(repoURL)
 			if err != nil {
@@ -50,9 +51,10 @@ func main() {
 			}
 
 			var options *github.ReleaseOptions
-			if packageType != "" {
+			if packageType != "" || rename != "" {
 				options = &github.ReleaseOptions{
 					TagPrefix: packageType,
+					Rename:    rename,
 				}
 			}
 
@@ -65,6 +67,7 @@ func main() {
 	}
 	installCmd.Flags().StringP("release", "r", "", "Specify a release version to install")
 	installCmd.Flags().StringP("tag-prefix", "t", "", "Omit releases without the prefix in the release tag (e.g., use \"auth-\" to omit version \"photo-v1.0.0\") -- useful for monorepos")
+	installCmd.Flags().String("rename", "", "Rename the installed binary to NAME if the installed asset is a binary (or contains a binary)")
 	rootCmd.AddCommand(installCmd)
 
 	// List command
