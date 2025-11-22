@@ -144,11 +144,12 @@ func main() {
 	}
 	// Helper to add a package widget
 	addPackageWidget = func(pkgID string, pkg manager.PackageMetadata, updateVersion string) {
-		pkgWidget := qt.NewQWidget(nil)
-		pkgWidget.SetObjectName(*qt.NewQAnyStringView3("packageCard"))
-		pkgWidget.SetStyleSheet("#packageCard { background-color: palette(base); border: 2px solid palette(mid); border-radius: 10px; }")
+		// Use RoundedWidget with rounded corners and outline (no stylesheet)
+		pkgFrame := qt.NewQGroupBox(nil)
+
 		hLayout := qt.NewQHBoxLayout(nil)
-		pkgWidget.SetLayout(hLayout.QLayout)
+		hLayout.SetContentsMargins(8, 8, 8, 8)
+		pkgFrame.SetLayout(hLayout.QLayout)
 
 		// Inline label group for type, name, version
 		labelRow := qt.NewQWidget(nil)
@@ -163,12 +164,10 @@ func main() {
 
 		versionLabel := qt.NewQLabel(nil)
 		versionLabel.SetText(pkg.Version)
-		versionLabel.SetStyleSheet("color: palette(dark);")
 		labelLayout.AddWidget(versionLabel.QWidget)
 
 		typeLabel := qt.NewQLabel(nil)
 		typeLabel.SetText(fmt.Sprintf("(%s)", pkg.InstallType))
-		typeLabel.SetStyleSheet("color: palette(mid);")
 		labelLayout.AddWidget(typeLabel.QWidget)
 
 		hLayout.AddWidget(labelRow)
@@ -183,7 +182,6 @@ func main() {
 				upgradePackageButtonClick(pkgID)
 			})
 			hLayout.AddWidget(updateBtn.QWidget)
-			pkgWidget.SetStyleSheet("#packageCard { background-color: palette(base); border: 2px solid palette(dark); border-radius: 10px; }")
 		}
 
 		// Remove button
@@ -200,7 +198,7 @@ func main() {
 		})
 		hLayout.AddWidget(removeBtn.QWidget)
 
-		packageListLayout.AddWidget(pkgWidget)
+		packageListLayout.AddWidget(pkgFrame.QWidget)
 	}
 	installButton.OnClicked(func() {
 		repoURL := repoInput.Text()
