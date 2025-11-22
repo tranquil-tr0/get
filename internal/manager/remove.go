@@ -2,7 +2,6 @@ package manager
 
 import (
 	"fmt"
-	"os"
 )
 
 func (pm *PackageManager) Remove(pkgID string) error {
@@ -66,8 +65,10 @@ func (pm *PackageManager) RemoveBinaryPackage(pkg PackageMetadata) error {
 		return fmt.Errorf("missing binary path for binary removal")
 	}
 
-	if err := os.Remove(pkg.BinaryPath); err != nil {
-		return fmt.Errorf("failed to remove binary %s: %v", pkg.BinaryPath, err)
+	cmdOutput, cmdErr := pm.Out.PromptElevatedCommand("Password required for binary removal: ", "rm", pkg.BinaryPath)
+	if cmdErr != nil {
+		return fmt.Errorf("failed to remove binary %s: %v\nOutput: %s", pkg.BinaryPath, cmdErr, cmdOutput)
 	}
+
 	return nil
 }
