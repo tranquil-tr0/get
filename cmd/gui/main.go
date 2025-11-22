@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	qt "github.com/mappu/miqt/qt6"
+	"github.com/tranquil-tr0/get/internal/github"
 	"github.com/tranquil-tr0/get/internal/manager"
 	"github.com/tranquil-tr0/get/internal/output"
 	"github.com/tranquil-tr0/get/internal/tools"
@@ -212,7 +213,53 @@ func main() {
 			return
 		}
 
-		if err := pm.InstallWithOptions(context.Background(), pkgID, "", nil); err != nil {
+		// Create a dialog to confirm install and ask for rename
+		dialog := qt.NewQDialog(window.QWidget)
+		dialog.SetWindowTitle("Install Package")
+		dialogLayout := qt.NewQVBoxLayout(nil)
+		dialog.SetLayout(dialogLayout.QLayout)
+
+		infoLabel := qt.NewQLabel(nil)
+		infoLabel.SetText(fmt.Sprintf("Install package from %s?", pkgID))
+		dialogLayout.AddWidget(infoLabel.QWidget)
+		dialogLayout.AddSpacing(10)
+
+		renameLabel := qt.NewQLabel(nil)
+		renameLabel.SetText("(binary only) Optionally, enter a name for the binary:")
+		dialogLayout.AddWidget(renameLabel.QWidget)
+
+		renameInput := qt.NewQLineEdit(nil)
+		renameInput.SetPlaceholderText("enter name")
+		dialogLayout.AddWidget(renameInput.QWidget)
+
+		buttonBox := qt.NewQDialogButtonBox(nil)
+		okBtn := qt.NewQPushButton(nil)
+		okBtn.SetText("Install")
+		buttonBox.AddButton(okBtn.QAbstractButton, qt.QDialogButtonBox__AcceptRole)
+
+		cancelBtn := qt.NewQPushButton(nil)
+		cancelBtn.SetText("Cancel")
+		buttonBox.AddButton(cancelBtn.QAbstractButton, qt.QDialogButtonBox__RejectRole)
+
+		dialogLayout.AddWidget(buttonBox.QWidget)
+
+		buttonBox.OnAccepted(dialog.Accept)
+		buttonBox.OnRejected(dialog.Reject)
+
+		if dialog.Exec() != int(qt.QDialog__Accepted) {
+			return
+		}
+
+		rename := renameInput.Text()
+
+		var options *github.ReleaseOptions
+		if rename != "" {
+			options = &github.ReleaseOptions{
+				Rename: rename,
+			}
+		}
+
+		if err := pm.InstallWithOptions(context.Background(), pkgID, "", options); err != nil {
 			if err == context.Canceled {
 				// User cancelled, don't show error
 				return
