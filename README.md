@@ -1,55 +1,64 @@
 # Get
 
-A tool to install and manage packages from GitHub, helping you avoid outdated or unused packages cluttering your system.
-Note that this only supports binaries and debs (and those two formats inside archive formats) as of v0.4.2, rpm support may come. Otherwise, binary installs should work for non-debian systems; if they don't, please file an issue.
+A tool to install and manage packages from GitHub releases, helping you avoid outdated or unused packages cluttering your system.
+Rewritten in Python with a Kirigami GUI.
+
+> [!IMPORTANT]
+> **Linux Only**: This tool is strictly for Linux systems. It manages `.deb` packages via `dpkg` and binaries in `/usr/local/bin`.
 
 ## Install
 
+### Prerequisites
+- Linux
+- Python 3.10+
+- `uv` (recommended) or `pip`
+- `sudo` access (for installing packages)
+
+### Installation
+Clone the repository and install with `uv`:
+
+```sh
+git clone https://github.com/tranquil-tr0/get.git
+cd get
+uv sync
+```
+
+Or install directly with `pip`:
+
+```sh
+pip install .
+```
+
+## Usage
+
 ### CLI
 
-The release is a standalone binary. Simply download, place it in your `$PATH`, and start using.
-You can also download with the install script:
-```sh
-bash <(curl -fsSL https://raw.githubusercontent.com/tranquil-tr0/get/refs/heads/main/install.sh)
-```
-This will install to `/usr/local/bin`, as will installed binaries.
+Run the CLI using `get` (if installed in PATH) or via `uv run`:
 
-Run `get install tranquil-tr0/get` to start it tracking itself.
-
-**Uninstall with:**
 ```sh
-rm /usr/local/bin/get
+# Install a package (requires sudo)
+uv run get install tranquil-tr0/get
+
+# List installed packages
+uv run get list
+
+# Remove a package (requires sudo)
+uv run get remove tranquil-tr0/get
 ```
-You should also delete the json file in `~/.local/share/get/`
 
 ### GUI
 
-The GUI is provided as a .deb file, which you can install. You can also install it with the cli by running `get install tranquil-tr0/get` (select get-gui or get-gui-deb.deb)
-The deb for the GUI will add its desktop entry and icons. You need to manually add those if you install it as a binary.
+The GUI is built with KDE Kirigami. To run it:
 
-If you want to install the GUI as a binary, you need to install its dependencies:
-<details><summary>Dependencies</summary>libQt6Widgets.so.6 libQt6Gui.so.6 libQt6Core.so.6 libstdc++.so.6 libm.so.6 libgcc_s.so.1 libc.so.6 libEGL.so.1 libfontconfig.so.1 libX11.so.6 libglib-2.0.so.0 libQt6DBus.so.6 libxkbcommon.so.0 libGLX.so.0 libOpenGL.so.0 libpng16.so.16 libharfbuzz.so.0 libmd4c.so.0 libfreetype.so.6 libz.so.1 libicui18n.so.76 libicuuc.so.76 libdouble-conversion.so.3 libb2.so.1 libpcre2-16.so.0 libzstd.so.1 libGLdispatch.so.0 libexpat.so.1 libxcb.so.1 libatomic.so.1 libpcre2-8.so.0 libdbus-1.so.3 libgraphite2.so.3 libbz2.so.1.0 libbrotlidec.so.1 libicudata.so.76 libgomp.so.1 libXau.so.6 libXdmcp.so.6 libsystemd.so.0 libbrotlicommon.so.1 libcap.so.2</details>
-
-You can run the gui after installing it and its dependencies
-The gui has a few less features than the cli, but some parts are also better right now
-
-## How do I use this?
-You can learn more about each command by running `--help` - for example:
-`get --help`
-`get install --help`
-`get update --help`
+```sh
+uv run get-gui
+```
 
 ## Contributing
-Issues are welcome!
-PRs are welcome!
-*there are some TODOs in [TODO](TODO.md)
 
-build commands:
-`go build -o get ./cmd/cli/main.go`
-`go build -o get-gui -ldflags "-s -w" ./cmd/gui/main.go`
-`sudo dpkg-deb --build --root-owner-group get-gui-deb`
+Issues and PRs are welcome!
 
-![image](https://github.com/user-attachments/assets/87672626-1f60-4ec5-9358-b539b8a5d79c)
-
----
-built with go, conda, and miqt
+### Development
+1. Install `uv`.
+2. Run `uv sync` to install dependencies.
+3. Run `uv run get --help` to test the CLI.

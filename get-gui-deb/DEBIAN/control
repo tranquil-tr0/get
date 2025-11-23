@@ -1,8 +1,0 @@
-Package: get-gui
-Version: 0.4.2
-Section: utils
-Priority: optional
-Architecture: amd64
-Depends: libc6 (>= 2.31), libstdc++6, libgcc-s1, libqt6widgets6, libqt6gui6, libqt6core6, libqt6dbus6, libegl1, libfontconfig1, libx11-6, libglib2.0-0, libxkbcommon0, libglx0, libopengl0, libpng16-16, libharfbuzz0b, libmd4c0, libfreetype6, libzstd1, libz1, libicu76, libdouble-conversion3, libb2-1, libpcre2-16-0, libexpat1, libxcb1, libatomic1, libpcre2-8-0, libdbus-1-3, libgraphite2-3, libbz2-1.0, libbrotli1, libicu76, libgomp1, libxau6, libxdmcp6, libsystemd0, libcap2
-Maintainer: tranquil <tranquil-tr0@proton.me>
-Description: a gui package manager that allows users to install debs and binaries from github, staying up to date without requiring maintaining a build script or manually checking github
