@@ -11,21 +11,21 @@ Rewritten in Python with a Kirigami GUI.
 ### Prerequisites
 - Linux
 - Python 3.10+
-- `uv` (recommended) or `pip`
+- `pip` and `venv`
 - `sudo` access (for installing packages)
 
 ### Installation
-Clone the repository and install with `uv`:
+Clone the repository and install:
 
 ```sh
 git clone https://github.com/tranquil-tr0/get.git
 cd get
-uv sync
-```
 
-Or install directly with `pip`:
+# Create and activate virtual environment
+python -m venv .venv
+source .venv/bin/activate
 
-```sh
+# Install the package
 pip install .
 ```
 
@@ -33,17 +33,17 @@ pip install .
 
 ### CLI
 
-Run the CLI using `get` (if installed in PATH) or via `uv run`:
+Run the CLI using `get` (if installed in PATH):
 
 ```sh
 # Install a package (requires sudo)
-uv run get install tranquil-tr0/get
+get install tranquil-tr0/get
 
 # List installed packages
-uv run get list
+get list
 
 # Remove a package (requires sudo)
-uv run get remove tranquil-tr0/get
+get remove tranquil-tr0/get
 ```
 
 ### GUI
@@ -51,7 +51,7 @@ uv run get remove tranquil-tr0/get
 The GUI is built with KDE Kirigami. To run it:
 
 ```sh
-uv run get-gui
+get-gui
 ```
 
 ## Contributing
@@ -59,6 +59,10 @@ uv run get-gui
 Issues and PRs are welcome!
 
 ### Development
-1. Install `uv`.
-2. Run `uv sync` to install dependencies.
-3. Run `uv run get --help` to test the CLI.
+1. Clone the repository
+2. Create a virtual environment: `python -m venv .venv`
+3. Activate it: `source .venv/bin/activate`
+4. Install in development mode: `pip install -e .`
+5. Run the CLI: `get --help`
+6. Run the GUI: `get-gui`
+
