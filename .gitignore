@@ -21,4 +21,4 @@ go.work
 
 .*/
 
-src/get/__pycache__/*
+/src/get/__pycache__/*
