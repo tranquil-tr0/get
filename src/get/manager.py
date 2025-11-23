@@ -21,22 +21,31 @@ class PackageManager:
         
         self.client = GitHubClient()
         self.installed_packages: Dict[str, Dict[str, Any]] = {}
+        self.pending_updates: Dict[str, str] = {}
         self._load_metadata()
 
     def _load_metadata(self):
         if self.metadata_path.exists():
             try:
                 with open(self.metadata_path, "r") as f:
-                    self.installed_packages = json.load(f)
+                    data = json.load(f)
+                    self.installed_packages = data.get("packages", {})
+                    self.pending_updates = data.get("pending_updates", {})
             except json.JSONDecodeError:
                 self.installed_packages = {}
+                self.pending_updates = {}
         else:
             self.installed_packages = {}
+            self.pending_updates = {}
 
     def _save_metadata(self):
         ensure_dir(self.metadata_path.parent)
+        data = {
+            "packages": self.installed_packages,
+            "pending_updates": self.pending_updates
+        }
         with open(self.metadata_path, "w") as f:
-            json.dump(self.installed_packages, f, indent=4)
+            json.dump(data, f, indent=4)
 
     def install(self, repo: str, release_tag: str = "latest", options: Optional[Dict] = None):
         """Installs a package from a GitHub repository."""
