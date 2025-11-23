@@ -20,3 +20,5 @@ go.work
 
 
 .*/
+
+src/get/__pycache__/*
