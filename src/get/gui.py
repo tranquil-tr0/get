@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtQml import QQmlApplicationEngine
-from PySide6.QtCore import QObject, Slot, Signal, Property, QStringListModel
+from PySide6.QtCore import QObject, Slot, Signal, Property, QStringListModel, QUrl, qInstallMessageHandler
 
 from .manager import PackageManager
 
@@ -85,6 +85,25 @@ class GUIBackend(QObject):
             print(f"Error upgrading all: {e}")
 
 def main():
+    # Enable debug output for QML
+    qInstallMessageHandler(lambda msg_type, context, msg: print(f"QML: {msg}"))
+
+    # Set environment variables to help locate QML modules
+    qml_path = os.environ.get("QML2_IMPORT_PATH", "")
+    kirigami_paths = [
+        "/usr/lib/x86_64-linux-gnu/qt6/qml",
+        "/usr/lib/x86_64-linux-gnu/qt5/qml",
+        "/usr/lib/qt6/qml"
+    ]
+    for path in kirigami_paths:
+        if os.path.exists(path):
+            if qml_path:
+                os.environ["QML2_IMPORT_PATH"] = f"{qml_path}:{path}"
+            else:
+                os.environ["QML2_IMPORT_PATH"] = path
+            print(f"Added QML path: {path}")
+            break
+
     app = QGuiApplication(sys.argv)
     engine = QQmlApplicationEngine()
 
@@ -98,9 +117,12 @@ def main():
         print(f"Error: QML file not found at {qml_file}")
         sys.exit(1)
 
-    engine.load(qml_file)
+    engine.load(QUrl.fromLocalFile(str(qml_file)))
 
     if not engine.rootObjects():
         sys.exit(-1)
 
     sys.exit(app.exec())
+
+if __name__ == "__main__":
+    main()
