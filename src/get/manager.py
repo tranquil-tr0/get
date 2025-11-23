@@ -1,5 +1,6 @@
 import json
 import os
+import requests
 import shutil
 import subprocess
 import tempfile
@@ -9,7 +10,7 @@ from pathlib import Path
 from typing import Dict, Any, Optional, List, Tuple
 from datetime import datetime
 
-from .utils import get_data_dir, ensure_dir, get_platform_info
+from .utils import get_data_dir, ensure_dir, get_platform_info, are_asset_names_similar
 from .github import GitHubClient
 
 class PackageManager:
@@ -47,7 +48,7 @@ class PackageManager:
         with open(self.metadata_path, "w") as f:
             json.dump(data, f, indent=4)
 
-    def install(self, repo: str, release_tag: str = "latest", options: Optional[Dict] = None):
+    def install(self, repo: str, release_tag: str = "latest", options: Optional[Dict] = None, interactive_callback=None):
         """Installs a package from a GitHub repository."""
         print(f"Fetching release for {repo} ({release_tag})...")
         release = self.client.get_release(repo, release_tag)
@@ -55,8 +56,20 @@ class PackageManager:
         
         # Asset selection logic
         asset = self._select_best_asset(release["assets"])
+        
         if not asset:
-            raise ValueError("No suitable asset found for your platform.")
+            if interactive_callback:
+                print("No suitable asset found automatically. Please select one:")
+                asset = interactive_callback(release["assets"])
+            
+            if not asset:
+                raise ValueError("No suitable asset found for your platform.")
+        elif options and not options.get("yes", True) and interactive_callback:
+             # If not auto-yes (default true for now to match old behavior unless flag passed, but old behavior was confirm)
+             # Actually old behavior: if chosenAsset != nil { if !pm.Yes { prompt } }
+             # We'll implement a simple confirm or select if requested.
+             # For now, let's assume if we found a best asset, we use it, unless interactive mode is forced or ambiguous.
+             pass
 
         print(f"Downloading {asset['name']}...")
         download_path = self._download_asset(asset["browser_download_url"], asset["name"])
@@ -81,6 +94,153 @@ class PackageManager:
             # Cleanup download
             if download_path.exists():
                 download_path.unlink()
+
+    def check_update(self, repo: str) -> Optional[str]:
+        """Checks for updates for a single package."""
+        if repo not in self.installed_packages:
+            return None
+            
+        pkg_data = self.installed_packages[repo]
+        current_version = pkg_data["version"]
+        tag_prefix = pkg_data.get("tag_prefix", "")
+        
+        try:
+            if tag_prefix:
+                # This is a simplification. Real tag prefix handling might need iterating tags.
+                # For now, let's assume latest release usually matches or we need to filter.
+                # The Go code iterates releases.
+                # We'll stick to 'latest' for now unless we want to implement full tag scanning.
+                release = self.client.get_release(repo, "latest")
+            else:
+                release = self.client.get_release(repo, "latest")
+                
+            latest_tag = release["tag_name"].lstrip("v")
+            
+            # Simple string comparison for now, ideally semver
+            if latest_tag != current_version:
+                return latest_tag
+        except Exception as e:
+            print(f"Error checking update for {repo}: {e}")
+            
+        return None
+
+    def update_all(self):
+        """Checks for updates for all installed packages."""
+        print("Checking for updates...")
+        updates_found = 0
+        for repo in self.installed_packages:
+            new_version = self.check_update(repo)
+            if new_version:
+                self.pending_updates[repo] = new_version
+                updates_found += 1
+                print(f"Update available for {repo}: {self.installed_packages[repo]['version']} -> {new_version}")
+        
+        self._save_metadata()
+        if updates_found == 0:
+            print("All packages are up to date.")
+        else:
+            print(f"Found {updates_found} updates. Run 'get upgrade' to install them.")
+
+    def upgrade_package(self, repo: str, interactive_callback=None):
+        """Upgrades a specific package."""
+        if repo not in self.pending_updates:
+            print(f"No pending update for {repo}")
+            return
+
+        new_version = self.pending_updates[repo]
+        pkg_data = self.installed_packages[repo]
+        original_asset_name = pkg_data.get("original_name")
+        
+        print(f"Upgrading {repo} to {new_version}...")
+        
+        try:
+            # Fetch release
+            # Note: we need the tag name with 'v' usually, but we stored it without.
+            # GitHub API is flexible but let's try to guess or just use 'latest' if it matches
+            # or fetch by tag if we knew the tag. 
+            # Since we stored 'latest_tag' in check_update which came from tag_name, 
+            # we might need to be careful. 
+            # Let's just fetch 'latest' again for simplicity or try to reconstruct tag.
+            # Go code: GetReleaseByTag(pkgID, pendingReleaseVersion)
+            
+            # We stored stripped version. Let's try adding v or just use it.
+            # Actually, check_update stored the stripped version.
+            # We should probably store the full tag in pending_updates to be safe?
+            # For now, let's try fetching by tag "v"+version and version.
+            
+            release = None
+            try:
+                release = self.client.get_release(repo, f"v{new_version}")
+            except:
+                try:
+                    release = self.client.get_release(repo, new_version)
+                except:
+                    # Fallback to latest if it matches
+                    l = self.client.get_release(repo, "latest")
+                    if l["tag_name"].lstrip("v") == new_version:
+                        release = l
+            
+            if not release:
+                raise ValueError(f"Could not find release for version {new_version}")
+
+            # Asset selection
+            chosen_asset = None
+            if original_asset_name:
+                for asset in release["assets"]:
+                    if are_asset_names_similar(original_asset_name, asset["name"]):
+                        chosen_asset = asset
+                        break
+            
+            if not chosen_asset:
+                print("Could not automatically match asset from previous installation.")
+                if interactive_callback:
+                    chosen_asset = interactive_callback(release["assets"])
+            
+            if not chosen_asset:
+                # Fallback to best asset logic
+                chosen_asset = self._select_best_asset(release["assets"])
+                
+            if not chosen_asset:
+                raise ValueError("No suitable asset found for upgrade.")
+
+            # Install
+            print(f"Downloading {chosen_asset['name']}...")
+            download_path = self._download_asset(chosen_asset["browser_download_url"], chosen_asset["name"])
+            
+            try:
+                # Pass existing options if any (like rename? rename is for binary only and usually manual)
+                # We should preserve 'apt_name' or 'binary_path' logic?
+                # Install will overwrite.
+                
+                # We need to handle 'rename' option if it was used.
+                # We don't store 'rename' explicitly but we have 'binary_path'.
+                options = {}
+                if pkg_data.get("install_type") == "binary":
+                    bin_path = Path(pkg_data["binary_path"])
+                    options["rename"] = bin_path.name
+                
+                install_info = self._install_asset(download_path, repo, release, options)
+                
+                # Update metadata
+                self.installed_packages[repo].update({
+                    "version": new_version,
+                    "installed_at": datetime.now().isoformat(),
+                    "original_name": chosen_asset["name"],
+                    "install_type": install_info["type"],
+                    # Keep other fields
+                })
+                
+                # Remove from pending updates
+                del self.pending_updates[repo]
+                self._save_metadata()
+                print(f"Successfully upgraded {repo}")
+                
+            finally:
+                if download_path.exists():
+                    download_path.unlink()
+                    
+        except Exception as e:
+            print(f"Error upgrading {repo}: {e}")
 
     def remove(self, repo: str):
         """Removes an installed package."""

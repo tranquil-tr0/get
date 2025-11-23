@@ -25,59 +25,52 @@ Kirigami.ApplicationWindow {
         ]
     }
 
-    pageStack.initialPage: installedPage
-
-    Component {
-        id: installedPage
-        Kirigami.ScrollablePage {
-            title: "Installed Packages"
-            
-            actions: [
-                Kirigami.Action {
-                    text: "Refresh"
-                    icon.name: "view-refresh"
-                    onTriggered: backend.refresh_packages()
-                },
-                Kirigami.Action {
-                    text: "Install New"
-                    icon.name: "list-add"
-                    onTriggered: installDialog.open()
-                }
-            ]
-
-            ListView {
-                model: backend.packages
-                delegate: Kirigami.SwipeListItem {
-                    contentItem: ColumnLayout {
-                        Label {
-                            text: modelData.name
-                            font.bold: true
-                        }
-                        Label {
-                            text: "Version: " + modelData.version
-                            opacity: 0.7
-                        }
-                    }
-                    actions: [
-                        Kirigami.Action {
-                            text: "Remove"
-                            icon.name: "edit-delete"
-                            onTriggered: backend.removePackage(modelData.name)
-                        }
-                    ]
-                }
+    pageStack.initialPage: Kirigami.ScrollablePage {
+        title: "Installed Packages"
+        
+        actions: [
+            Kirigami.Action {
+                text: "Refresh"
+                icon.name: "view-refresh"
+                onTriggered: backend.refresh_packages()
+            },
+            Kirigami.Action {
+                text: "Install New"
+                icon.name: "list-add"
+                onTriggered: installDialog.open()
+            },
+            Kirigami.Action {
+                text: "Check Updates"
+                icon.name: "system-software-update"
+                onTriggered: backend.checkForUpdates()
+            },
+            Kirigami.Action {
+                text: "Upgrade All"
+                icon.name: "system-upgrade"
+                onTriggered: backend.upgradeAll()
             }
-        }
-    }
+        ]
 
-    Component {
-        id: aboutPage
-        Kirigami.Page {
-            title: "About"
-            Label {
-                anchors.centerIn: parent
-                text: "Get Package Manager\nVersion 0.5.0\n\nBuilt with Python & Kirigami"
-                horizontalAlignment: Text.AlignHCenter
+        ListView {
+            model: backend.packages
+            delegate: Kirigami.SwipeListItem {
+                contentItem: ColumnLayout {
+                    Label {
+                        text: modelData.name
+                        font.bold: true
+                    }
+                    Label {
+                        text: "Version: " + modelData.version
+                        opacity: 0.7
+                    }
+                }
+                actions: [
+                    Kirigami.Action {
+                        text: "Remove"
+                        icon.name: "edit-delete"
+                        onTriggered: backend.removePackage(modelData.name)
+                    }
+                ]
             }
         }
     }

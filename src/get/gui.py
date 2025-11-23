@@ -19,6 +19,13 @@ class GUIBackend(QObject):
     @Property("QVariantList", notify=packagesChanged)
     def packages(self):
         return self._packages
+    
+    @Property("QVariantList", notify=packagesChanged)
+    def pendingUpdates(self):
+        updates = []
+        for repo, version in self.pm.pending_updates.items():
+            updates.append({"name": repo, "newVersion": version})
+        return updates
 
     @Slot()
     def refresh_packages(self):
@@ -47,6 +54,35 @@ class GUIBackend(QObject):
             self.refresh_packages()
         except Exception as e:
             print(f"Error: {e}")
+
+    @Slot()
+    def checkForUpdates(self):
+        print("Checking for updates...")
+        try:
+            self.pm.update_all()
+            self.refresh_packages()
+        except Exception as e:
+            print(f"Error checking updates: {e}")
+
+    @Slot(str)
+    def upgradePackage(self, repo):
+        print(f"Upgrading {repo}...")
+        try:
+            # GUI interactive callback not implemented yet, relying on auto-detect or best match
+            self.pm.upgrade_package(repo)
+            self.refresh_packages()
+        except Exception as e:
+            print(f"Error upgrading {repo}: {e}")
+
+    @Slot()
+    def upgradeAll(self):
+        print("Upgrading all...")
+        try:
+            for repo in list(self.pm.pending_updates.keys()):
+                self.pm.upgrade_package(repo)
+            self.refresh_packages()
+        except Exception as e:
+            print(f"Error upgrading all: {e}")
 
 def main():
     app = QGuiApplication(sys.argv)

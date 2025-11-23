@@ -2,6 +2,7 @@ import typer
 from typing import Optional
 from rich.console import Console
 from rich.table import Table
+from rich.prompt import Prompt, Confirm
 import sys
 
 from .manager import PackageManager
@@ -33,7 +34,7 @@ def install(
     try:
         repo_id = parse_repo_url(repo)
         options = {"tag_prefix": tag_prefix, "rename": rename}
-        pm.install(repo_id, release, options)
+        pm.install(repo_id, release, options, interactive_callback=_interactive_asset_selection)
         console.print(f"[green]Successfully installed {repo_id}[/green]")
     except Exception as e:
         console.print(f"[red]Error installing package: {e}[/red]")
@@ -81,12 +82,28 @@ def remove(repo: str = typer.Argument(..., help="GitHub repository URL or user/r
 @app.command()
 def update():
     """Check for updates."""
-    console.print("[yellow]Update functionality not yet fully implemented.[/yellow]")
+    pm.update_all()
 
 @app.command()
 def upgrade():
     """Upgrade installed packages."""
-    console.print("[yellow]Upgrade functionality not yet fully implemented.[/yellow]")
+    if not pm.pending_updates:
+        console.print("No pending updates.")
+        return
+        
+    for repo in list(pm.pending_updates.keys()):
+        pm.upgrade_package(repo, interactive_callback=_interactive_asset_selection)
+
+def _interactive_asset_selection(assets):
+    """
+    Helper for interactive asset selection using Rich.
+    """
+    console.print("\n[bold cyan]Available Assets:[/bold cyan]")
+    for i, asset in enumerate(assets):
+        console.print(f"{i+1}. {asset['name']} ({asset.get('content_type', 'unknown')})")
+        
+    choice = Prompt.ask("Select an asset to install (enter number)", choices=[str(i+1) for i in range(len(assets))])
+    return assets[int(choice)-1]
 
 if __name__ == "__main__":
     app()

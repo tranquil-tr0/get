@@ -35,3 +35,16 @@ def get_data_dir() -> Path:
 def ensure_dir(path: Path):
     """Ensures a directory exists."""
     path.mkdir(parents=True, exist_ok=True)
+
+def are_asset_names_similar(name1: str, name2: str) -> bool:
+    """
+    Checks if two asset names are similar by removing version numbers.
+    Ported from Go: internal/tools/parser.go
+    """
+    # Regex to match version numbers like v1.2.3
+    version_re = re.compile(r"v?[0-9]+\.[0-9]+\.[0-9]+")
+    
+    clean_name1 = version_re.sub("", name1)
+    clean_name2 = version_re.sub("", name2)
+    
+    return clean_name1 == clean_name2
