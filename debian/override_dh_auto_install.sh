@@ -16,7 +16,7 @@ mkdir -p debian/tmp/usr/share/get/qml
 # that will invoke the package's `get.gui:main`. This requires the runtime
 # dependency (PySide6) to be available on the target system.
 if [ ! -f debian/tmp/usr/bin/get-gui ]; then
-  printf '%s\n' '#!/bin/sh' 'exec /usr/bin/python3 -m get.gui "$$@"' > debian/tmp/usr/bin/get-gui || true
+  printf '%s\n' '#!/bin/sh' 'exec /usr/bin/python3 -m get.gui "$@"' > debian/tmp/usr/bin/get-gui || true
   chmod 755 debian/tmp/usr/bin/get-gui || true
 fi
 : > debian/tmp/usr/share/get/qml/placeholder || true
@@ -73,7 +73,7 @@ if [ ! -d debian/get/usr/lib/python3/dist-packages/get ]; then
     rm -rf debian/get/usr/lib/python3/dist-packages/get/qml || true
   fi
   mkdir -p debian/get/usr/bin
-  printf '%s\n' '#!/bin/sh' 'exec /usr/bin/python3 -m get.cli "$$@"' > debian/get/usr/bin/get
+  printf '%s\n' '#!/bin/sh' 'exec /usr/bin/python3 -m get.cli "$@"' > debian/get/usr/bin/get
   chmod 755 debian/get/usr/bin/get
 fi
 

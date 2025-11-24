@@ -1,2 +1,2 @@
 #!/bin/sh
-exec /usr/bin/python3 -m get.gui "$$@"
+exec /usr/bin/python3 -m get.gui "$@"
