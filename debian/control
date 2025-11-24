@@ -11,4 +11,4 @@ Package: get
 Architecture: all
 Depends: ${python3:Depends}, ${misc:Depends}
 Description: Package manager for GitHub releases
- A small utility to install and manage binaries published as GitHub releases.
+  A small utility to install and manage binaries published as GitHub releases.
