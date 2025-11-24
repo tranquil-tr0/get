@@ -1,8 +1,0 @@
-[Desktop Entry]
-Name=Get GUI
-Comment=Package manager for github without the maintenance
-Exec=/usr/bin/get-gui
-Icon=get-gui
-Terminal=false
-Type=Application
-Categories=Utility;
