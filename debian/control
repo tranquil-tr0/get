@@ -11,4 +11,12 @@ Package: get
 Architecture: all
 Depends: ${python3:Depends}, ${misc:Depends}
 Description: Package manager for GitHub releases
-  A small utility to install and manage binaries published as GitHub releases.
+ A small utility to install and manage binaries published as GitHub releases.
+
+Package: get-gui
+Architecture: all
+Depends: ${python3:Depends}, get, python3-qtpy-pyside6, libpyside6-py3-6.9, ${misc:Depends}
+Description: Graphical frontend for get
+ QML/Qt (PySide6) graphical frontend for the `get` tool. Contains the
+ application launcher and QML assets. Desktop file and icon should be
+ provided in the source tree or by the packager.
