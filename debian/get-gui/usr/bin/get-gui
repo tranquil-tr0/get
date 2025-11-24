@@ -1,0 +1,3 @@
+#!/bin/sh
+# Placeholder launcher for get-gui (packaging-only)
+exec /bin/true

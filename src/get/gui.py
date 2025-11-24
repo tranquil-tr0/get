@@ -111,11 +111,20 @@ def main():
     engine.rootContext().setContextProperty("backend", backend)
 
     # Load QML
-    # Assuming Main.qml is in the same directory or accessible
+    # First try the QML bundled alongside the Python package; if not present
+    # fall back to a system-shared location `/usr/share/get/qml` (provided by
+    # the `get-gui` binary package). This keeps the CLI package free of GUI
+    # assets while still allowing the GUI package to supply them.
     qml_file = Path(__file__).parent / "qml" / "Main.qml"
     if not qml_file.exists():
-        print(f"Error: QML file not found at {qml_file}")
-        sys.exit(1)
+        alt_qml = Path("/usr/share/get/qml") / "Main.qml"
+        if alt_qml.exists():
+            qml_file = alt_qml
+            print(f"Using system QML file at {qml_file}")
+        else:
+            print(f"Error: QML file not found at {qml_file}")
+            print(f"Also checked {alt_qml}")
+            sys.exit(1)
 
     engine.load(QUrl.fromLocalFile(str(qml_file)))
 
