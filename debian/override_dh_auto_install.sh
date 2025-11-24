@@ -101,4 +101,27 @@ if [ -f debian/get-gui/usr/bin/get-gui ]; then
   cp -a debian/get-gui/usr/bin/get-gui debian/tmp/usr/bin/get-gui 2>/dev/null || true
 fi
 
+# Copy desktop entry and icons into debian/tmp so dh_install can pick them up
+if [ -f debian/get-gui/usr/share/applications/get-gui.desktop ]; then
+  mkdir -p debian/tmp/usr/share/applications
+  cp -a debian/get-gui/usr/share/applications/get-gui.desktop debian/tmp/usr/share/applications/ 2>/dev/null || true
+fi
+
+if [ -d debian/get-gui/usr/share/icons/hicolor ]; then
+  mkdir -p debian/tmp/usr/share/icons/hicolor
+  cp -a debian/get-gui/usr/share/icons/hicolor/* debian/tmp/usr/share/icons/hicolor/ 2>/dev/null || true
+fi
+
+# Fallback: pick up desktop and icons from top-level get-gui/ directory if present
+if [ -f get-gui/usr/share/applications/get-gui.desktop ]; then
+  mkdir -p debian/tmp/usr/share/applications
+  cp -a get-gui/usr/share/applications/get-gui.desktop debian/tmp/usr/share/applications/ 2>/dev/null || true
+fi
+
+if [ -d get-gui/usr/share/icons/hicolor ]; then
+  mkdir -p debian/tmp/usr/share/icons/hicolor
+  cp -a get-gui/usr/share/icons/hicolor/* debian/tmp/usr/share/icons/hicolor/ 2>/dev/null || true
+fi
+
+
 exit 0

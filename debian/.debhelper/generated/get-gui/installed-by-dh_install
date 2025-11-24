@@ -2,3 +2,7 @@ debian/tmp/usr/bin/get-gui
 debian/tmp/usr/share/get/qml/placeholder
 debian/tmp/usr/share/get/qml/qml
 debian/tmp/usr/lib/python3/dist-packages/get/gui.py
+debian/tmp/usr/share/applications/get-gui.desktop
+debian/tmp/usr/share/icons/hicolor/128x128/apps/get-gui.png
+debian/tmp/usr/share/icons/hicolor/256x256/apps/get-gui.png
+debian/tmp/usr/share/icons/hicolor/48x48/apps/get-gui.png

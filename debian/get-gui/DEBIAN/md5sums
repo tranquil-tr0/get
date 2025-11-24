@@ -1,8 +1,12 @@
 0f1e3d73b7c8b19a95b8d4ea139c9180  usr/bin/get-gui
 9def70566fed4bb40e8732a68fe99f8c  usr/lib/python3/dist-packages/get/gui.py
+82a4bd5c354c5ef067a2db25977f468c  usr/share/applications/get-gui.desktop
 0364db4751ad5a4d53dc7f2d09d7f5d7  usr/share/doc/get-gui/changelog.Debian.gz
 d470c5421c70e3e14054329b81d95932  usr/share/doc/get-gui/copyright
 b9a3840789208ccd6b8f6a3bc33b3d28  usr/share/get/qml/Main.qml
 d41d8cd98f00b204e9800998ecf8427e  usr/share/get/qml/placeholder
 b9a3840789208ccd6b8f6a3bc33b3d28  usr/share/get/qml/qml/Main.qml
+492d4844651c8ded02e4d29851f2e94b  usr/share/icons/hicolor/128x128/apps/get-gui.png
+2c77c1b314cd35a72ebc13c340b0921d  usr/share/icons/hicolor/256x256/apps/get-gui.png
+b7f7d3092b537290ece30e2379392d58  usr/share/icons/hicolor/48x48/apps/get-gui.png
 9be2edf9291bc59d5fe27d65a0d9a60f  usr/share/man/man1/get-gui.1.gz
