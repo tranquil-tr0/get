@@ -1,0 +1,9 @@
+762daff053e414b4f73f98d82a803bc9  usr/bin/get
+f207da051b63d4ce3237894595899736  usr/lib/python3/dist-packages/get/__init__.py
+5675342dbd16790bd7e31fd371bb9a30  usr/lib/python3/dist-packages/get/cli.py
+9132590fcdae266f4a7bf915bb76738d  usr/lib/python3/dist-packages/get/github.py
+f012ed416f47d2855ad3007b48533664  usr/lib/python3/dist-packages/get/manager.py
+2021fc84e35f42be70af2e754e796ad1  usr/lib/python3/dist-packages/get/utils.py
+0364db4751ad5a4d53dc7f2d09d7f5d7  usr/share/doc/get/changelog.Debian.gz
+d470c5421c70e3e14054329b81d95932  usr/share/doc/get/copyright
+16ea561b433fd48196e292408e1cef48  usr/share/man/man1/get.1.gz

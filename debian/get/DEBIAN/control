@@ -1,0 +1,11 @@
+Package: get
+Version: 0.5.0-1
+Architecture: all
+Maintainer: tranquil <tranquil@example.com>
+Installed-Size: 45
+Depends: python3:any
+Section: utils
+Priority: optional
+Homepage: https://github.com/tranquil-tr0/get
+Description: Package manager for GitHub releases
+ A small utility to install and manage binaries published as GitHub releases.

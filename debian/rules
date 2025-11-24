@@ -1,0 +1,34 @@
+
+#!/usr/bin/make -f
+%:
+	dh $@
+
+override_dh_auto_install:
+	# Use dh_auto_install (dh_python3/pybuild) to install into debian/get
+	dh_auto_install
+	# Remove compiled caches that should not be packaged
+	find debian/get -type d -name '__pycache__' -prune -exec rm -rf {} + || true
+	# Remove any GUI launcher if present (this package is CLI-only)
+	rm -f debian/get/usr/bin/get-gui || true
+	# Remove GUI modules and QML assets to make this CLI-only
+	rm -f debian/get/usr/lib/python3/dist-packages/get/gui.py || true
+	rm -rf debian/get/usr/lib/python3/dist-packages/get/qml || true
+
+	# If dh_auto_install didn't install files (PEP517 backends may not be available
+	# on the build host), fall back to copying the source package into the
+	# Debian dist-packages layout. This avoids calling pip at build time.
+	if [ ! -d debian/get/usr/lib/python3/dist-packages/get ]; then
+		mkdir -p debian/get/usr/lib/python3/dist-packages
+		cp -a src/get debian/get/usr/lib/python3/dist-packages/
+		# remove GUI parts from the copied package
+		rm -f debian/get/usr/lib/python3/dist-packages/get/gui.py || true
+		rm -rf debian/get/usr/lib/python3/dist-packages/get/qml || true
+		# create a simple wrapper script for the CLI entrypoint
+		mkdir -p debian/get/usr/bin
+		cat > debian/get/usr/bin/get <<'SH'
+#!/bin/sh
+exec /usr/bin/python3 -m get.cli "$@"
+SH
+		chmod 755 debian/get/usr/bin/get
+	fi
+
