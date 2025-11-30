@@ -29,8 +29,8 @@ def parse_repo_url(url: str) -> str:
 
 def get_data_dir() -> Path:
     """Returns the data directory for the application."""
-    # Strictly ~/.local/share/get for Linux
-    return Path.home() / ".local" / "share" / "get"
+    data_dir = os.environ.get("XDG_DATA_DIR", Path.home() / ".local" / "share")
+    return Path(data_dir) / "get"
 
 def ensure_dir(path: Path):
     """Ensures a directory exists."""
