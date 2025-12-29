@@ -1,4 +1,4 @@
-# I am suggesting [Autonomix](https://github.com/PlebOne/autonomix) instead. It is almost the same project, but likely better developed. The only difference for now I believe is it uses GTK vs QT for get.
+# I am suggesting [Autonomix](https://github.com/PlebOne/autonomix) instead.
 # Get
 
 A tool to install and manage packages from GitHub releases, helping you avoid outdated or unused packages cluttering your system.
