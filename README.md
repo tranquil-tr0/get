@@ -1,9 +1,11 @@
-# I am suggesting [Autonomix](https://github.com/PlebOne/autonomix) instead.
+# I suggest (pacstall)[pacstall.dev] instead on Debian, active development is not occuring
 # Get
 
 A tool to install and manage packages from GitHub releases, helping you avoid outdated or unused packages cluttering your system.
 
 ## Install
+
+You can choose v0.4.2 as a valid alternative for v0.5.0, if you would like to avoid python annoyances; the previous version is written in golang and thus produces a self-contained binary.
 
 ### Prerequisites
 - Linux
