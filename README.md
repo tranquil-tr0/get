@@ -1,4 +1,3 @@
-# I suggest (pacstall)[pacstall.dev] instead on Debian, active development is not occuring
 # Get
 
 A tool to install and manage packages from GitHub releases, helping you avoid outdated or unused packages cluttering your system.
